@@ -76,10 +76,47 @@ Always verify resource identifiers and understand the impact of operations befor
 
 @mcp.resource(uri='aws-rds://clusters', name='DB Clusters', mime_type='application/json')
 async def list_clusters_resource() -> str:
-    """List all DB clusters in the region.
+    """List all available Amazon RDS clusters in your account.
     
-    Returns a JSON document containing all clusters with their current status,
-    configuration, and member instances.
+    <use_case>
+    Use this resource to discover all available RDS database clusters in your AWS account,
+    including Aurora clusters (MySQL/PostgreSQL) and Multi-AZ DB clusters.
+    </use_case>
+    
+    <important_notes>
+    1. The response provides the essential information (identifiers, engine, etc.) about each cluster
+    2. Cluster identifiers returned can be used with other tools and resources in this MCP server
+    3. Keep note of the db_cluster_identifier and db_cluster_resource_id for use with other tools
+    4. Clusters are filtered to the AWS region specified in your environment configuration
+    5. Use the `aws-rds://clusters/{cluster_id}` to get more information about a specific cluster
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `clusters`: Array of DB cluster objects
+    - `count`: Number of clusters found
+    - `resource_uri`: Base URI for accessing clusters
+    
+    Each cluster object contains:
+    - `db_cluster_identifier`: Unique identifier for the cluster
+    - `db_cluster_resource_id`: The unique resource identifier for this cluster
+    - `db_cluster_arn`: ARN of the cluster
+    - `status`: Current status of the cluster
+    - `engine`: Database engine type
+    - `engine_version`: The version of the database engine
+    - `availability_zones`: The AZs where the cluster instances can be created
+    - `multi_az`: Whether the cluster has instances in multiple Availability Zones
+    - `tag_list`: List of tags attached to the cluster
+    
+    <examples>
+    Example usage scenarios:
+    1. Discovery and inventory:
+       - List all available RDS clusters to create an inventory
+       - Identify cluster engine types and versions in your environment
+    2. Preparation for other operations:
+       - Find specific cluster identifiers to use with management tools
+       - Identify clusters that may need maintenance or upgrades
+    </examples>
     """
     return await get_cluster_list_resource(get_rds_client())
 
@@ -90,14 +127,46 @@ async def list_clusters_resource() -> str:
     mime_type='application/json',
 )
 async def get_cluster_resource(cluster_id: str) -> str:
-    """Get detailed information about a specific DB cluster.
+    """Get detailed information about a specific Amazon RDS cluster.
     
-    Args:
-        cluster_id: The identifier of the DB cluster
-        
-    Returns:
-        JSON document with comprehensive cluster information including
-        status, configuration, endpoints, and member instances.
+    <use_case>
+    Use this resource to retrieve comprehensive details about a specific RDS database cluster
+    identified by its cluster ID. This provides deeper insights than the cluster list resource.
+    </use_case>
+    
+    <important_notes>
+    1. The cluster ID must exist in your AWS account and region
+    2. The response contains full configuration details about the specified cluster
+    3. This resource includes information not available in the list view such as parameter groups,
+       backup configuration, and maintenance windows
+    4. Use the cluster list resource first to identify valid cluster IDs
+    5. Error responses will be returned if the cluster doesn't exist or there are permission issues
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing detailed cluster information:
+    - All fields from the list view plus:
+    - `endpoint`: The primary endpoint for connecting to the cluster
+    - `reader_endpoint`: The reader endpoint for read operations (if applicable)
+    - `port`: The port the database engine is listening on
+    - `parameter_group`: Database parameter group information
+    - `backup_retention_period`: How long backups are retained (in days)
+    - `preferred_backup_window`: When automated backups occur
+    - `preferred_maintenance_window`: When maintenance operations can occur
+    - `resource_uri`: The full resource URI for this specific cluster
+    
+    <examples>
+    Example usage scenarios:
+    1. Detailed configuration review:
+       - Verify backup configuration meets requirements
+       - Check maintenance windows align with operational schedules
+    2. Connection information lookup:
+       - Retrieve endpoints needed for application configuration
+       - Obtain port information for security group configuration
+    3. Audit and compliance:
+       - Verify parameter groups match expected configurations
+       - Confirm encryption settings are properly applied
+    </examples>
     """
     return await get_cluster_detail_resource(cluster_id, get_rds_client())
 
@@ -119,7 +188,52 @@ async def create_db_cluster_tool(
     port: Optional[int] = Field(default=None, description='The port number on which the instances accept connections'),
     engine_version: Optional[str] = Field(default=None, description='The version number of the database engine'),
 ) -> Dict[str, Any]:
-    """Create a new RDS database cluster."""
+    """Create a new RDS database cluster.
+    
+    <use_case>
+    Use this tool to provision a new Amazon RDS database cluster in your AWS account.
+    This creates the cluster control plane but doesn't automatically provision database instances.
+    You'll need to create DB instances separately after the cluster is available.
+    </use_case>
+    
+    <important_notes>
+    1. Cluster identifiers must follow naming rules: 1-63 alphanumeric characters, must begin with a letter
+    2. The tool will automatically determine default port numbers based on the engine if not specified
+    3. Using manage_master_user_password=True (default) will store the password in AWS Secrets Manager
+    4. Not all parameter combinations are valid for all database engines
+    5. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the creation
+    - `formatted_cluster`: A simplified representation of the cluster in standard format
+    - `DBCluster`: The full AWS API response containing all cluster details including:
+      - `DBClusterIdentifier`: The cluster identifier
+      - `Status`: The current status (usually "creating" initially)
+      - `Engine`: The database engine
+      - `EngineVersion`: The engine version
+      - `Endpoint`: The connection endpoint
+      - `MasterUsername`: The admin username
+      - `AvailabilityZones`: List of AZs where the cluster operates
+      - Other cluster configuration details and settings
+    
+    <examples>
+    Example usage scenarios:
+    1. Create a basic Aurora PostgreSQL cluster:
+       - db_cluster_identifier="my-postgres-cluster"
+       - engine="aurora-postgresql"
+       - master_username="admin"
+    
+    2. Create a MySQL-compatible Aurora cluster with custom settings:
+       - db_cluster_identifier="production-aurora"
+       - engine="aurora-mysql"
+       - master_username="dbadmin"
+       - database_name="appdb"
+       - backup_retention_period=7
+       - vpc_security_group_ids=["sg-12345678"]
+    </examples>
+    """
     return await cluster.create_db_cluster(
         ctx=ctx,
         rds_client=get_rds_client(),
@@ -151,7 +265,51 @@ async def modify_db_cluster_tool(
     engine_version: Optional[str] = Field(default=None, description='The version number of the database engine'),
     allow_major_version_upgrade: Optional[bool] = Field(default=None, description='Whether major version upgrades are allowed'),
 ) -> Dict[str, Any]:
-    """Modify an existing RDS database cluster configuration."""
+    """Modify an existing RDS database cluster configuration.
+    
+    <use_case>
+    Use this tool to update the configuration of an existing Amazon RDS database cluster.
+    This allows changing various settings like backup retention, parameter groups, security groups, 
+    and upgrading database engine versions without recreating the cluster.
+    </use_case>
+    
+    <important_notes>
+    1. Setting apply_immediately=True applies changes immediately but may cause downtime
+    2. Setting apply_immediately=False (default) applies changes during the next maintenance window
+    3. Major version upgrades require allow_major_version_upgrade=True
+    4. Changing the port may require updates to security groups and application configurations
+    5. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the modification
+    - `formatted_cluster`: A simplified representation of the modified cluster in standard format
+    - `DBCluster`: The full AWS API response containing all cluster details including:
+      - `DBClusterIdentifier`: The cluster identifier
+      - `Status`: The current status (may show "modifying")
+      - `PendingModifiedValues`: Values that will be applied if not immediate
+      - Other updated cluster configuration details
+    
+    <examples>
+    Example usage scenarios:
+    1. Increase backup retention period:
+       - db_cluster_identifier="production-db-cluster" 
+       - backup_retention_period=14
+       - apply_immediately=True
+    
+    2. Change security groups and apply during maintenance window:
+       - db_cluster_identifier="production-db-cluster"
+       - vpc_security_group_ids=["sg-87654321", "sg-12348765"]
+       - apply_immediately=False
+    
+    3. Upgrade database engine version:
+       - db_cluster_identifier="production-db-cluster"
+       - engine_version="5.7.mysql_aurora.2.10.2"
+       - allow_major_version_upgrade=True
+       - apply_immediately=False
+    </examples>
+    """
     return await cluster.modify_db_cluster(
         ctx=ctx,
         rds_client=get_rds_client(),
@@ -178,9 +336,53 @@ async def delete_db_cluster_tool(
 ) -> Dict[str, Any]:
     """Delete an RDS database cluster.
     
-    This is a destructive operation that requires a two-step confirmation process:
-    1. First call without a confirmation_token to get a token
-    2. Then call again with the token to confirm and execute the operation
+    <use_case>
+    Use this tool to permanently remove an Amazon RDS database cluster and optionally
+    create a final snapshot. This operation cannot be undone, so a confirmation token is
+    required to prevent accidental deletion.
+    </use_case>
+    
+    <important_notes>
+    1. This is a destructive operation that permanently deletes data
+    2. A confirmation token is required for safety - first call without token to receive one
+    3. If skip_final_snapshot=False, you must provide final_db_snapshot_identifier
+    4. The operation may take several minutes to complete
+    5. All associated instances, automated backups and continuous backups (PITR) will be deleted
+    6. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without a confirmation token:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the deletion
+    - `impact`: Description of the impact of deletion
+    - `confirmation_token`: Token to use in a subsequent call
+    - `message`: Instructions for confirming the deletion
+    
+    If called with a valid confirmation token:
+    - `message`: Success message confirming deletion
+    - `formatted_cluster`: A simplified representation of the deleted cluster
+    - `DBCluster`: The full AWS API response containing cluster details including:
+      - `DBClusterIdentifier`: The cluster identifier
+      - `Status`: The current status (usually "deleting")
+      - Other cluster details
+    
+    <examples>
+    Example usage scenarios:
+    1. Start deletion process (get confirmation token):
+       - db_cluster_identifier="test-db-cluster"
+       - skip_final_snapshot=true
+    
+    2. Confirm deletion (with confirmation token):
+       - db_cluster_identifier="test-db-cluster"
+       - skip_final_snapshot=true
+       - confirmation_token="abc123xyz" (token received from step 1)
+    
+    3. Delete with final snapshot:
+       - db_cluster_identifier="prod-db-cluster"
+       - skip_final_snapshot=false
+       - final_db_snapshot_identifier="prod-final-snapshot-20230625"
+    </examples>
     """
     return await cluster.delete_db_cluster(
         ctx=ctx,
@@ -202,12 +404,57 @@ async def status_db_cluster_tool(
 ) -> Dict[str, Any]:
     """Manage the status of an RDS database cluster.
     
-    This tool allows you to start, stop, or reboot an RDS database cluster.
+    <use_case>
+    Use this tool to change the operational status of an Amazon RDS database cluster.
+    You can start a stopped cluster, stop a running cluster, or reboot a cluster to apply
+    configuration changes or resolve certain issues.
+    </use_case>
     
-    Important warnings:
-    - start: Starting a stopped cluster will resume billing charges and may incur costs
-    - stop: Stopping a cluster will make it unavailable until started again
-    - reboot: Rebooting will cause a brief interruption to database service
+    <important_notes>
+    1. Each action requires explicit confirmation with a specific confirmation string
+    2. Stopping a cluster will make it unavailable but will continue to incur storage charges
+    3. Starting a cluster will resume full billing charges
+    4. Rebooting causes a brief interruption but preserves cluster settings and data
+    5. Aurora Serverless v1 clusters cannot be stopped manually
+    6. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without confirmation:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the action
+    - `impact`: Description of the impact of the action
+    - `message`: Instructions for confirming the action
+    
+    If called with valid confirmation:
+    - `message`: Success message confirming the action
+    - `formatted_cluster`: A simplified representation of the cluster in its new state
+    - `DBCluster`: The full AWS API response containing cluster details including:
+      - `DBClusterIdentifier`: The cluster identifier
+      - `Status`: The current status (e.g., "starting", "stopping", "rebooting")
+      - Other cluster details
+    
+    <examples>
+    Example usage scenarios:
+    1. Stop a development cluster (first call to get warning):
+       - db_cluster_identifier="dev-db-cluster" 
+       - action="stop"
+    
+    2. Confirm stopping the cluster:
+       - db_cluster_identifier="dev-db-cluster"
+       - action="stop"
+       - confirmation="CONFIRM_STOP"
+    
+    3. Reboot a cluster that's experiencing issues:
+       - db_cluster_identifier="prod-db-cluster"
+       - action="reboot"
+       - confirmation="CONFIRM_REBOOT"
+    
+    4. Start a previously stopped cluster:
+       - db_cluster_identifier="dev-db-cluster"
+       - action="start"
+       - confirmation="CONFIRM_START"
+    </examples>
     """
     return await cluster.status_db_cluster(
         ctx=ctx,
@@ -226,7 +473,57 @@ async def failover_db_cluster_tool(
     target_db_instance_identifier: Optional[str] = Field(default=None, description='The instance to promote to primary'),
     confirmation: Optional[str] = Field(default=None, description='Confirmation text for destructive operation - must match the cluster identifier exactly'),
 ) -> Dict[str, Any]:
-    """Force a failover for an RDS database cluster."""
+    """Force a failover for an RDS database cluster.
+    
+    <use_case>
+    Use this tool to force a failover of an Amazon RDS Multi-AZ DB cluster, promoting a read replica
+    to become the primary instance. This can be used for disaster recovery testing, to move the primary
+    to a different availability zone, or to recover from issues with the current primary instance.
+    </use_case>
+    
+    <important_notes>
+    1. This operation requires explicit confirmation with the text "CONFIRM_FAILOVER"
+    2. Failover causes a momentary interruption in database availability
+    3. Any in-flight transactions that haven't been committed may be lost during failover
+    4. The cluster must be in the "available" state for the failover to succeed
+    5. If target_db_instance_identifier is not specified, RDS chooses a replica automatically
+    6. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without confirmation:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the failover
+    - `impact`: Description of the impact of the failover
+    - `message`: Instructions for confirming the failover
+    
+    If called with valid confirmation:
+    - `message`: Success message confirming the initiated failover
+    - `formatted_cluster`: A simplified representation of the cluster during failover
+    - `DBCluster`: The full AWS API response containing cluster details including:
+      - `DBClusterIdentifier`: The cluster identifier
+      - `Status`: The current status (usually "failing-over")
+      - Other cluster details
+    
+    <examples>
+    Example usage scenarios:
+    1. Start failover process (get warning):
+       - db_cluster_identifier="production-cluster"
+    
+    2. Confirm failover without specifying a target:
+       - db_cluster_identifier="production-cluster"
+       - confirmation="CONFIRM_FAILOVER"
+    
+    3. Failover to a specific replica instance:
+       - db_cluster_identifier="production-cluster"
+       - target_db_instance_identifier="production-instance-east-1c"
+       - confirmation="CONFIRM_FAILOVER"
+    
+    4. Regular disaster recovery drill:
+       - db_cluster_identifier="production-cluster"
+       - confirmation="CONFIRM_FAILOVER"
+    </examples>
+    """
     return await cluster.failover_db_cluster(
         ctx=ctx,
         rds_client=get_rds_client(),
@@ -245,7 +542,57 @@ async def describe_db_clusters_tool(
     marker: Optional[str] = Field(default=None, description='Pagination token'),
     max_records: Optional[int] = Field(default=None, description='Maximum number of records'),
 ) -> Dict[str, Any]:
-    """Retrieve information about one or multiple RDS clusters."""
+    """Retrieve information about one or multiple RDS clusters.
+    
+    <use_case>
+    Use this tool to query detailed information about Amazon RDS clusters in your AWS account.
+    This provides the raw data from the AWS API and is useful for advanced filtering and pagination.
+    </use_case>
+    
+    <important_notes>
+    1. If db_cluster_identifier is specified, information is returned only for that cluster
+    2. The filters parameter allows complex querying based on cluster attributes
+    3. Pagination is supported through marker and max_records parameters
+    4. The response includes the complete AWS API data structure
+    5. Results are filtered to the AWS region specified in your environment configuration
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `DBClusters`: List of DB cluster descriptions from the AWS API
+    - `formatted_clusters`: List of simplified cluster representations
+    - `Marker`: Pagination token for retrieving the next set of results (if applicable)
+    
+    Each DB cluster description in the API response contains extensive details including:
+    - All connection endpoints
+    - Complete configuration parameters
+    - Status information
+    - Associated resources
+    - Security settings
+    - Backup configuration
+    - Performance settings
+    
+    <examples>
+    Example usage scenarios:
+    1. Get details about a specific cluster:
+       - db_cluster_identifier="production-aurora-cluster"
+    
+    2. Filter clusters by engine type:
+       - filters=[{"Name": "engine", "Values": ["aurora-postgresql"]}]
+    
+    3. Get the first 20 clusters, then paginate:
+       - max_records=20
+       (Then in subsequent calls)
+       - max_records=20
+       - marker="token-from-previous-response"
+    
+    4. Complex filtering with multiple attributes:
+       - filters=[
+           {"Name": "engine", "Values": ["aurora-mysql"]},
+           {"Name": "status", "Values": ["available"]}
+         ]
+    </examples>
+    """
     return await cluster.describe_db_clusters(
         ctx=ctx,
         rds_client=get_rds_client(),
