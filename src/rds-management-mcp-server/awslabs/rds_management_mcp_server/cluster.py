@@ -255,7 +255,7 @@ async def delete_db_cluster(
     ],
     skip_final_snapshot: Annotated[
         bool, Field(description='Determines whether a final DB snapshot is created before the DB cluster is deleted')
-    ],
+    ] = False,
     final_db_snapshot_identifier: Annotated[
         Optional[str], Field(description='The DB snapshot identifier of the new DB snapshot created when SkipFinalSnapshot is false')
     ] = None,

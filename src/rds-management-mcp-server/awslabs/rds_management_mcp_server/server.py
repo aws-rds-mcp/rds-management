@@ -330,7 +330,7 @@ async def modify_db_cluster_tool(
 async def delete_db_cluster_tool(
     ctx: Context,
     db_cluster_identifier: str = Field(description='The identifier for the DB cluster'),
-    skip_final_snapshot: bool = Field(description='Whether to skip creating a final snapshot'),
+    skip_final_snapshot: bool = Field(default=False, description='Whether to skip creating a final snapshot'),
     final_db_snapshot_identifier: Optional[str] = Field(default=None, description='The snapshot identifier if creating final snapshot'),
     confirmation_token: Optional[str] = Field(default=None, description='The confirmation token for the operation - required for destructive operations'),
 ) -> Dict[str, Any]:
@@ -345,10 +345,11 @@ async def delete_db_cluster_tool(
     <important_notes>
     1. This is a destructive operation that permanently deletes data
     2. A confirmation token is required for safety - first call without token to receive one
-    3. If skip_final_snapshot=False, you must provide final_db_snapshot_identifier
-    4. The operation may take several minutes to complete
-    5. All associated instances, automated backups and continuous backups (PITR) will be deleted
-    6. When run with readonly=True (default), this operation will be simulated but not actually performed
+    3. By default, a final snapshot is created (skip_final_snapshot=False)
+    4. When creating a final snapshot (default behavior), you must provide final_db_snapshot_identifier
+    5. The operation may take several minutes to complete
+    6. All associated instances, automated backups and continuous backups (PITR) will be deleted
+    7. When run with readonly=True (default), this operation will be simulated but not actually performed
     </important_notes>
     
     ## Response structure
