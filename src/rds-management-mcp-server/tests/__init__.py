@@ -11,3 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Test package for RDS Management MCP Server.
+
+This package contains comprehensive tests for the RDS Management MCP Server,
+covering all tools, resources and functionality offered by the server.
+
+Tests are organized by module and functionality:
+- test_server.py: Tests for the main server module and MCP tool definitions
+- test_cluster.py: Tests for cluster management operations
+- test_resources.py: Tests for resource implementations (RDS cluster resources)
+- test_utils.py: Tests for utility functions
+"""
