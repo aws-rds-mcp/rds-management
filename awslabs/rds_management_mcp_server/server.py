@@ -27,7 +27,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from pydantic import Field
 
 # modules
-from . import cluster
+from . import cluster, instance
 from .constants import MCP_SERVER_VERSION
 from .resources import (
     get_cluster_detail_resource,
@@ -613,6 +613,352 @@ async def failover_db_cluster_tool(
         db_cluster_identifier=db_cluster_identifier,
         target_db_instance_identifier=target_db_instance_identifier,
         confirmation=confirmation,
+    )
+
+
+# ===== INSTANCE MANAGEMENT TOOLS =====
+
+@mcp.tool(name='create_db_instance')
+async def create_db_instance_tool(
+    ctx: Context,
+    db_instance_identifier: str = Field(description='The identifier for the DB instance'),
+    db_cluster_identifier: str = Field(description='The identifier of the DB cluster that the instance will belong to'),
+    db_instance_class: str = Field(description='The compute and memory capacity of the DB instance (e.g., db.r5.large)'),
+    availability_zone: Optional[str] = Field(default=None, description='The Availability Zone where the DB instance will be created'),
+    engine: Optional[str] = Field(default=None, description='The name of the database engine to be used for this instance'),
+    publicly_accessible: Optional[bool] = Field(default=None, description='Specifies whether the DB instance is publicly accessible'),
+    tags: Optional[List[Dict[str, str]]] = Field(default=None, description='A list of tags to assign to the DB instance'),
+) -> Dict[str, Any]:
+    """Create a new RDS DB instance within an existing DB cluster.
+    
+    <use_case>
+    Use this tool to provision a new Amazon RDS database instance within an existing DB cluster.
+    For Aurora databases, cluster instances provide the compute and memory capacity for the cluster.
+    </use_case>
+    
+    <important_notes>
+    1. Instance identifiers must follow naming rules: 1-63 alphanumeric characters, must begin with a letter
+    2. The DB cluster must exist before creating an instance within it
+    3. The instance class determines the compute and memory capacity (e.g., db.r5.large)
+    4. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the creation
+    - `formatted_instance`: A simplified representation of the instance in standard format
+    - `DBInstance`: The full AWS API response containing all instance details including:
+      - `DBInstanceIdentifier`: The instance identifier
+      - `DBInstanceClass`: The compute capacity class
+      - `Engine`: The database engine
+      - `DBClusterIdentifier`: The parent cluster identifier
+      - `AvailabilityZone`: The AZ where the instance is located
+      - `Endpoint`: The connection endpoint
+      - Other instance configuration details
+    
+    <examples>
+    Example usage scenarios:
+    1. Create a standard Aurora cluster instance:
+       - db_instance_identifier="aurora-instance-1"
+       - db_cluster_identifier="aurora-cluster"
+       - db_instance_class="db.r5.large"
+    
+    2. Create a DB instance in a specific availability zone:
+       - db_instance_identifier="aurora-instance-2"
+       - db_cluster_identifier="aurora-cluster"
+       - db_instance_class="db.r5.large"
+       - availability_zone="us-east-1a"
+       - publicly_accessible=false
+    </examples>
+    """
+    return await instance.create_db_instance(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_instance_identifier=db_instance_identifier,
+        db_cluster_identifier=db_cluster_identifier,
+        db_instance_class=db_instance_class,
+        availability_zone=availability_zone,
+        engine=engine,
+        publicly_accessible=publicly_accessible,
+        tags=tags,
+    )
+
+
+@mcp.tool(name='modify_db_instance')
+async def modify_db_instance_tool(
+    ctx: Context,
+    db_instance_identifier: str = Field(description='The identifier for the DB instance'),
+    apply_immediately: Optional[bool] = Field(default=None, description='Specifies whether the modifications are applied immediately, or during the next maintenance window'),
+    db_instance_class: Optional[str] = Field(default=None, description='The new compute and memory capacity of the DB instance'),
+    db_parameter_group_name: Optional[str] = Field(default=None, description='The name of the DB parameter group to apply to the DB instance'),
+    publicly_accessible: Optional[bool] = Field(default=None, description='Specifies whether the DB instance is publicly accessible'),
+    auto_minor_version_upgrade: Optional[bool] = Field(default=None, description='Indicates whether minor engine upgrades are applied automatically to the DB instance'),
+    preferred_maintenance_window: Optional[str] = Field(default=None, description='The weekly time range during which system maintenance can occur'),
+) -> Dict[str, Any]:
+    """Modify an existing RDS database instance.
+    
+    <use_case>
+    Use this tool to update the configuration of an existing Amazon RDS database instance.
+    This allows changing various settings like instance class, parameter groups, and
+    maintenance windows without recreating the instance.
+    </use_case>
+    
+    <important_notes>
+    1. Setting apply_immediately=True applies changes immediately but may cause downtime
+    2. Setting apply_immediately=False (default) applies changes during the next maintenance window
+    3. Changing the instance class affects the compute and memory capacity of the instance
+    4. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the modification
+    - `formatted_instance`: A simplified representation of the modified instance in standard format
+    - `DBInstance`: The full AWS API response containing all instance details including:
+      - `DBInstanceIdentifier`: The instance identifier
+      - `DBInstanceClass`: The updated compute capacity class
+      - `PendingModifiedValues`: Values that will be applied if not immediate
+      - Other updated instance configuration details
+    
+    <examples>
+    Example usage scenarios:
+    1. Scale up instance capacity immediately:
+       - db_instance_identifier="production-db-instance"
+       - db_instance_class="db.r5.2xlarge"
+       - apply_immediately=true
+    
+    2. Update parameter group during maintenance window:
+       - db_instance_identifier="production-db-instance"
+       - db_parameter_group_name="custom-mysql-params"
+       - apply_immediately=false
+    
+    3. Change instance accessibility:
+       - db_instance_identifier="production-db-instance"
+       - publicly_accessible=false
+    </examples>
+    """
+    return await instance.modify_db_instance(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_instance_identifier=db_instance_identifier,
+        apply_immediately=apply_immediately,
+        db_instance_class=db_instance_class,
+        db_parameter_group_name=db_parameter_group_name,
+        publicly_accessible=publicly_accessible,
+        auto_minor_version_upgrade=auto_minor_version_upgrade,
+        preferred_maintenance_window=preferred_maintenance_window,
+    )
+
+
+@mcp.tool(name='delete_db_instance')
+async def delete_db_instance_tool(
+    ctx: Context,
+    db_instance_identifier: str = Field(description='The identifier for the DB instance'),
+    skip_final_snapshot: bool = Field(default=False, description='Whether to skip creating a final snapshot'),
+    final_db_snapshot_identifier: Optional[str] = Field(default=None, description='The snapshot identifier if creating final snapshot'),
+    confirmation_token: Optional[str] = Field(default=None, description='The confirmation token for the operation - required for destructive operations'),
+) -> Dict[str, Any]:
+    """Delete an RDS database instance.
+    
+    <use_case>
+    Use this tool to permanently remove an Amazon RDS database instance and optionally
+    create a final snapshot. This operation cannot be undone, so a confirmation token is
+    required to prevent accidental deletion.
+    </use_case>
+    
+    <important_notes>
+    1. This is a destructive operation that permanently deletes data
+    2. A confirmation token is required for safety - first call without token to receive one
+    3. By default, a final snapshot is created (skip_final_snapshot=False)
+    4. When creating a final snapshot (default behavior), you must provide final_db_snapshot_identifier
+    5. The operation may take several minutes to complete
+    6. Automated backups and continuous backups (PITR) will be deleted with the instance
+    7. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without a confirmation token:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the deletion
+    - `impact`: Description of the impact of deletion
+    - `confirmation_token`: Token to use in a subsequent call
+    - `message`: Instructions for confirming the deletion
+    
+    If called with a valid confirmation token:
+    - `message`: Success message confirming deletion
+    - `formatted_instance`: A simplified representation of the deleted instance
+    - `DBInstance`: The full AWS API response containing instance details including:
+      - `DBInstanceIdentifier`: The instance identifier
+      - `Status`: The current status (usually "deleting")
+      - Other instance details
+    
+    <examples>
+    Example usage scenarios:
+    1. Start deletion process (get confirmation token):
+       - db_instance_identifier="test-db-instance"
+       - skip_final_snapshot=true
+    
+    2. Confirm deletion (with confirmation token):
+       - db_instance_identifier="test-db-instance"
+       - skip_final_snapshot=true
+       - confirmation_token="abc123xyz" (token received from step 1)
+    
+    3. Delete with final snapshot:
+       - db_instance_identifier="prod-db-instance"
+       - skip_final_snapshot=false
+       - final_db_snapshot_identifier="prod-instance-snapshot-20230625"
+    </examples>
+    """
+    return await instance.delete_db_instance(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_instance_identifier=db_instance_identifier,
+        skip_final_snapshot=skip_final_snapshot,
+        final_db_snapshot_identifier=final_db_snapshot_identifier,
+        confirmation_token=confirmation_token,
+    )
+
+
+@mcp.tool(name='status_db_instance')
+async def status_db_instance_tool(
+    ctx: Context,
+    db_instance_identifier: str = Field(description='The identifier for the DB instance'),
+    action: str = Field(description='Action to perform: "start", "stop", or "reboot"'),
+    confirmation: Optional[str] = Field(default=None, description='Confirmation text for destructive operations - required for all actions'),
+) -> Dict[str, Any]:
+    """Manage the status of an RDS database instance.
+    
+    <use_case>
+    Use this tool to change the operational status of an Amazon RDS database instance.
+    You can start a stopped instance, stop a running instance, or reboot an instance to apply
+    configuration changes or resolve certain issues.
+    </use_case>
+    
+    <important_notes>
+    1. Each action requires explicit confirmation with a specific confirmation string
+    2. Stopping an instance will make it unavailable but will continue to incur storage charges
+    3. Starting an instance will resume full billing charges
+    4. Rebooting causes a brief interruption but preserves instance settings and data
+    5. For Multi-AZ instances, a reboot with failover can be performed with specific parameters
+    6. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without confirmation:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the action
+    - `impact`: Description of the impact of the action
+    - `message`: Instructions for confirming the action
+    
+    If called with valid confirmation:
+    - `message`: Success message confirming the action
+    - `formatted_instance`: A simplified representation of the instance in its new state
+    - `DBInstance`: The full AWS API response containing instance details including:
+      - `DBInstanceIdentifier`: The instance identifier
+      - `Status`: The current status (e.g., "starting", "stopping", "rebooting")
+      - Other instance details
+    
+    <examples>
+    Example usage scenarios:
+    1. Stop a development instance (first call to get warning):
+       - db_instance_identifier="dev-db-instance" 
+       - action="stop"
+    
+    2. Confirm stopping the instance:
+       - db_instance_identifier="dev-db-instance"
+       - action="stop"
+       - confirmation="CONFIRM_STOP"
+    
+    3. Reboot an instance that's experiencing issues:
+       - db_instance_identifier="prod-db-instance"
+       - action="reboot"
+       - confirmation="CONFIRM_REBOOT"
+    
+    4. Start a previously stopped instance:
+       - db_instance_identifier="dev-db-instance"
+       - action="start"
+       - confirmation="CONFIRM_START"
+    </examples>
+    """
+    return await instance.status_db_instance(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_instance_identifier=db_instance_identifier,
+        action=action,
+        confirmation=confirmation,
+    )
+
+
+@mcp.tool(name='describe_db_instances')
+async def describe_db_instances_tool(
+    ctx: Context,
+    db_instance_identifier: Optional[str] = Field(default=None, description='The DB instance identifier'),
+    filters: Optional[List[Dict[str, Any]]] = Field(default=None, description='Filters to apply'),
+    marker: Optional[str] = Field(default=None, description='Pagination token'),
+    max_records: Optional[int] = Field(default=None, description='Maximum number of records'),
+) -> Dict[str, Any]:
+    """Retrieve information about one or multiple RDS instances.
+    
+    <use_case>
+    Use this tool to query detailed information about Amazon RDS instances in your AWS account.
+    This provides the raw data from the AWS API and is useful for advanced filtering and pagination.
+    </use_case>
+    
+    <important_notes>
+    1. If db_instance_identifier is specified, information is returned only for that instance
+    2. The filters parameter allows complex querying based on instance attributes
+    3. Pagination is supported through marker and max_records parameters
+    4. The response includes the complete AWS API data structure
+    5. Results are filtered to the AWS region specified in your environment configuration
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `DBInstances`: List of DB instance descriptions from the AWS API
+    - `formatted_instances`: List of simplified instance representations
+    - `Marker`: Pagination token for retrieving the next set of results (if applicable)
+    
+    Each DB instance description in the API response contains extensive details including:
+    - Endpoint connection information
+    - Complete configuration parameters
+    - Status information
+    - Associated resources and cluster information
+    - Storage configuration
+    - Security settings
+    - Backup configuration
+    
+    <examples>
+    Example usage scenarios:
+    1. Get details about a specific instance:
+       - db_instance_identifier="production-db-instance"
+    
+    2. Filter instances by engine type:
+       - filters=[{"Name": "engine", "Values": ["aurora-postgresql"]}]
+    
+    3. Get the first 20 instances, then paginate:
+       - max_records=20
+       (Then in subsequent calls)
+       - max_records=20
+       - marker="token-from-previous-response"
+    
+    4. Complex filtering with multiple attributes:
+       - filters=[
+           {"Name": "instance-type", "Values": ["db.r5.large"]},
+           {"Name": "engine", "Values": ["aurora-mysql"]}
+         ]
+    </examples>
+    """
+    return await instance.describe_db_instances(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        db_instance_identifier=db_instance_identifier,
+        filters=filters,
+        marker=marker,
+        max_records=max_records,
     )
 
 
