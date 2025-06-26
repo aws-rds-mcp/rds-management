@@ -27,7 +27,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from pydantic import Field
 
 # modules
-from . import backup, cluster, instance
+from . import backup, cluster, instance, parameter
 from .constants import MCP_SERVER_VERSION
 from .resources import (
     get_cluster_detail_resource,
@@ -40,6 +40,12 @@ from .backup import (
     get_all_instance_backups_resource,
     get_cluster_backups_resource,
     get_instance_backups_resource,
+)
+from .parameter import (
+    get_db_instance_parameters_resource,
+    get_db_instance_parameter_groups_resource,
+    get_db_cluster_parameters_resource,
+    get_db_cluster_parameter_groups_resource,
 )
 from .models import (
     ClusterModel,
@@ -426,6 +432,259 @@ async def all_instance_backups_resource() -> str:
     </examples>
     """
     return await get_all_instance_backups_resource(get_rds_client())
+
+
+# ===== PARAMETER RESOURCES =====
+
+@mcp.resource(
+    uri='aws-rds://db-instance/parameters',
+    name='DB Instance Parameters',
+    mime_type='application/json',
+)
+async def db_instance_parameters_resource() -> str:
+    """Resource for listing all DB parameters.
+    
+    <use_case>
+    Use this resource to discover information about database parameters across all instance parameter
+    groups in your account. Parameter values define how the database engine operates and behaves.
+    </use_case>
+    
+    <important_notes>
+    1. This resource provides a consolidated view of parameters across all parameter groups
+    2. Some parameters may be specific to certain database engines
+    3. Parameters are organized by their parameter groups
+    4. To see specific parameter groups and their parameters, use the parameter_groups resource
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `parameter_groups`: Array of parameter group objects, each containing:
+      - `name`: The parameter group name
+      - `parameters`: Array of parameter objects
+    - `count`: Total number of parameter groups
+    
+    <examples>
+    Example usage scenarios:
+    1. Parameter audit and compliance:
+       - Review parameter settings across your environment
+       - Identify non-standard configurations
+    2. Configuration planning:
+       - Determine what parameters are available for tuning
+       - Compare parameter settings across different parameter groups
+    </examples>
+    """
+    return await get_db_instance_parameter_groups_resource(get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-instance/parameter-groups',
+    name='DB Instance Parameter Groups',
+    mime_type='application/json',
+)
+async def db_instance_parameter_groups_resource() -> str:
+    """Resource for listing all DB parameter groups.
+    
+    <use_case>
+    Use this resource to discover all available DB instance parameter groups in your AWS account.
+    Parameter groups are collections of engine configuration values that can be applied to
+    database instances.
+    </use_case>
+    
+    <important_notes>
+    1. Parameter groups are organized by database engine family
+    2. Default parameter groups are provided for each engine family
+    3. Custom parameter groups allow for performance and behavior tuning
+    4. The same parameter group can be applied to multiple instances
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `parameter_groups`: Array of parameter group objects
+    - `count`: Total number of parameter groups
+    - `resource_uri`: The resource URI for these parameter groups
+    
+    <examples>
+    Example usage scenarios:
+    1. Configuration management:
+       - Identify available parameter groups before creating instances
+       - Review parameter group settings for compliance or optimization
+    2. Preparation for applying common settings:
+       - Find parameter groups that can be applied to multiple instances
+       - Compare parameter settings across different groups
+    </examples>
+    """
+    return await get_db_instance_parameter_groups_resource(get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-cluster/parameters',
+    name='DB Cluster Parameters',
+    mime_type='application/json',
+)
+async def db_cluster_parameters_resource() -> str:
+    """Resource for listing all DB cluster parameters.
+    
+    <use_case>
+    Use this resource to discover information about database parameters across all cluster parameter
+    groups in your account. Parameter values define how the database engine operates and behaves at
+    the cluster level.
+    </use_case>
+    
+    <important_notes>
+    1. This resource provides a consolidated view of parameters across all cluster parameter groups
+    2. Cluster parameters affect all instances in the cluster
+    3. Some parameters may be specific to certain database engines
+    4. Parameters are organized by their parameter groups
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `parameter_groups`: Array of parameter group objects, each containing:
+      - `name`: The parameter group name
+      - `parameters`: Array of parameter objects
+    - `count`: Total number of parameter groups
+    
+    <examples>
+    Example usage scenarios:
+    1. Parameter audit and compliance:
+       - Review parameter settings across your environment
+       - Identify non-standard configurations
+    2. Configuration planning:
+       - Determine what parameters are available for tuning
+       - Compare parameter settings across different parameter groups
+    </examples>
+    """
+    return await get_db_cluster_parameter_groups_resource(get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-cluster/parameter-groups',
+    name='DB Cluster Parameter Groups',
+    mime_type='application/json',
+)
+async def db_cluster_parameter_groups_resource() -> str:
+    """Resource for listing all DB cluster parameter groups.
+    
+    <use_case>
+    Use this resource to discover all available DB cluster parameter groups in your AWS account.
+    Cluster parameter groups are collections of engine configuration values that can be applied to
+    database clusters.
+    </use_case>
+    
+    <important_notes>
+    1. Cluster parameter groups are organized by database engine family
+    2. Default parameter groups are provided for each engine family
+    3. Custom parameter groups allow for performance and behavior tuning
+    4. The same parameter group can be applied to multiple clusters
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `parameter_groups`: Array of parameter group objects
+    - `count`: Total number of parameter groups
+    - `resource_uri`: The resource URI for these parameter groups
+    
+    <examples>
+    Example usage scenarios:
+    1. Configuration management:
+       - Identify available parameter groups before creating clusters
+       - Review parameter group settings for compliance or optimization
+    2. Preparation for applying common settings:
+       - Find parameter groups that can be applied to multiple clusters
+       - Compare parameter settings across different groups
+    </examples>
+    """
+    return await get_db_cluster_parameter_groups_resource(get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-cluster/parameter-groups/{db_cluster_parameter_group_name}/parameters',
+    name='DB Cluster Parameter Group Parameters',
+    mime_type='application/json',
+)
+async def db_cluster_parameter_group_parameters_resource(db_cluster_parameter_group_name: str) -> str:
+    """Resource for listing parameters in a specific DB cluster parameter group.
+    
+    <use_case>
+    Use this resource to inspect detailed information about all parameters in a specific
+    DB cluster parameter group. This provides insight into how the database cluster is
+    configured and the specific settings that apply to all instances in the cluster.
+    </use_case>
+    
+    <important_notes>
+    1. Parameter values determine database behavior and performance
+    2. Some parameters can be modified, while others are fixed
+    3. Parameter modifications may require a database reboot to take effect
+    4. Parameters have different data types and valid value ranges
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `parameters`: Array of parameter objects with:
+      - `name`: The parameter name
+      - `value`: The parameter value
+      - `description`: Parameter description
+      - `allowed_values`: Valid range or values
+      - `is_modifiable`: Whether the parameter can be changed
+    - `count`: Total number of parameters
+    - `parameter_group_name`: The name of the parameter group
+    
+    <examples>
+    Example usage scenarios:
+    1. Parameter review and tuning:
+       - Examine current parameter settings before making changes
+       - Identify parameters that can be modified for performance improvements
+    2. Configuration documentation:
+       - Document the complete configuration of a database cluster
+       - Compare settings across different environments
+    </examples>
+    """
+    return await get_db_cluster_parameters_resource(db_cluster_parameter_group_name, get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-instance/parameter-groups/{db_parameter_group_name}/parameters',
+    name='DB Instance Parameter Group Parameters',
+    mime_type='application/json',
+)
+async def db_instance_parameter_group_parameters_resource(db_parameter_group_name: str) -> str:
+    """Resource for listing parameters in a specific DB instance parameter group.
+    
+    <use_case>
+    Use this resource to inspect detailed information about all parameters in a specific
+    DB instance parameter group. This provides insight into how database instances using
+    this parameter group are configured.
+    </use_case>
+    
+    <important_notes>
+    1. Parameter values determine database behavior and performance
+    2. Some parameters can be modified, while others are fixed
+    3. Parameter modifications may require a database reboot to take effect
+    4. Parameters have different data types and valid value ranges
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `parameters`: Array of parameter objects with:
+      - `name`: The parameter name
+      - `value`: The parameter value
+      - `description`: Parameter description
+      - `allowed_values`: Valid range or values
+      - `is_modifiable`: Whether the parameter can be changed
+    - `count`: Total number of parameters
+    - `parameter_group_name`: The name of the parameter group
+    
+    <examples>
+    Example usage scenarios:
+    1. Parameter review and tuning:
+       - Examine current parameter settings before making changes
+       - Identify parameters that can be modified for performance improvements
+    2. Configuration documentation:
+       - Document the complete configuration of database instances
+       - Compare settings across different environments
+    </examples>
+    """
+    return await get_db_instance_parameters_resource(db_parameter_group_name, get_rds_client())
 
 
 # ===== CLUSTER MANAGEMENT TOOLS =====
@@ -1446,6 +1705,407 @@ async def describe_db_clusters_tool(
         rds_client=get_rds_client(),
         db_cluster_identifier=db_cluster_identifier,
         filters=filters,
+        marker=marker,
+        max_records=max_records,
+    )
+
+
+# ===== PARAMETER MANAGEMENT TOOLS =====
+
+@mcp.tool(name='create_db_cluster_parameter_group')
+async def create_db_cluster_parameter_group_tool(
+    ctx: Context,
+    db_cluster_parameter_group_name: str = Field(description='The name of the DB cluster parameter group'),
+    db_parameter_group_family: str = Field(description='The DB parameter group family name'),
+    description: str = Field(description='The description for the DB cluster parameter group'),
+    tags: Optional[List[Dict[str, str]]] = Field(default=None, description='A list of tags to apply to the parameter group'),
+) -> Dict[str, Any]:
+    """Create a new custom DB cluster parameter group.
+    
+    <use_case>
+    Use this tool to create a custom parameter group for DB clusters, allowing you to customize
+    database engine parameters according to your specific requirements. Custom parameter groups
+    let you optimize database performance, security, and behavior.
+    </use_case>
+    
+    <important_notes>
+    1. Parameter group names must be 1-255 letters, numbers, or hyphens
+    2. Parameter group names must start with a letter and cannot end with a hyphen
+    3. You must specify a valid DB parameter group family (e.g., 'mysql8.0', 'aurora-postgresql13')
+    4. The parameter group family determines which parameters are available
+    5. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the creation
+    - `formatted_parameter_group`: A simplified representation of the parameter group
+    - `DBClusterParameterGroup`: The full AWS API response
+    
+    <examples>
+    Example usage scenarios:
+    1. Create a parameter group for a MySQL cluster:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - db_parameter_group_family="mysql8.0"
+       - description="Production MySQL 8.0 parameters with optimized settings"
+    
+    2. Create a parameter group for an Aurora PostgreSQL cluster:
+       - db_cluster_parameter_group_name="data-warehouse-params"
+       - db_parameter_group_family="aurora-postgresql13"
+       - description="Data warehouse optimized parameters"
+       - tags=[{"Environment": "Production", "Team": "Data"}]
+    </examples>
+    """
+    return await parameter.create_db_cluster_parameter_group(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_parameter_group_name=db_cluster_parameter_group_name,
+        db_parameter_group_family=db_parameter_group_family,
+        description=description,
+        tags=tags,
+    )
+
+
+@mcp.tool(name='modify_db_cluster_parameter_group')
+async def modify_db_cluster_parameter_group_tool(
+    ctx: Context,
+    db_cluster_parameter_group_name: str = Field(description='The name of the DB cluster parameter group'),
+    parameters: List[Dict[str, Any]] = Field(description='The parameters to modify'),
+) -> Dict[str, Any]:
+    """Modify parameters in a DB cluster parameter group.
+    
+    <use_case>
+    Use this tool to update parameter values in an existing DB cluster parameter group.
+    This allows you to tune database engine configuration to optimize performance,
+    security, and behavior according to your specific workload requirements.
+    </use_case>
+    
+    <important_notes>
+    1. Each parameter object must contain 'name' and 'value' keys
+    2. The 'apply_method' can be 'immediate' or 'pending-reboot'
+    3. Not all parameters can be modified
+    4. Some parameter changes require a database reboot to take effect
+    5. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the modification
+    - `parameters_modified`: Number of parameters that were modified
+    - `formatted_parameters`: A sample of the parameters in the group
+    - `total_parameters`: Total number of parameters in the group
+    - `DBClusterParameterGroupStatus`: The AWS API response
+    
+    <examples>
+    Example usage scenarios:
+    1. Increase the maximum connections:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - parameters=[{"name": "max_connections", "value": "1000", "apply_method": "pending-reboot"}]
+    
+    2. Modify multiple parameters:
+       - db_cluster_parameter_group_name="data-warehouse-params"
+       - parameters=[
+           {"name": "shared_buffers", "value": "4096", "apply_method": "pending-reboot"},
+           {"name": "max_connections", "value": "200", "apply_method": "pending-reboot"},
+           {"name": "log_min_duration_statement", "value": "500", "apply_method": "immediate"}
+         ]
+    </examples>
+    """
+    return await parameter.modify_db_cluster_parameter_group(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_parameter_group_name=db_cluster_parameter_group_name,
+        parameters=parameters,
+    )
+
+
+@mcp.tool(name='reset_db_cluster_parameter_group')
+async def reset_db_cluster_parameter_group_tool(
+    ctx: Context,
+    db_cluster_parameter_group_name: str = Field(description='The name of the DB cluster parameter group'),
+    reset_all_parameters: bool = Field(default=False, description='Whether to reset all parameters'),
+    parameters: Optional[List[Dict[str, Any]]] = Field(default=None, description='The parameters to reset (if not resetting all)'),
+    confirmation_token: Optional[str] = Field(default=None, description='The confirmation token for the operation - required for destructive operations'),
+) -> Dict[str, Any]:
+    """Reset parameters in a DB cluster parameter group to their default values.
+    
+    <use_case>
+    Use this tool to reset parameters in a DB cluster parameter group to their default values.
+    This can be used to revert configuration changes or to return to a known-good state if
+    custom parameter settings are causing issues.
+    </use_case>
+    
+    <important_notes>
+    1. This operation requires explicit confirmation with a confirmation token
+    2. You can choose to reset all parameters or a specific subset
+    3. If resetting specific parameters, each parameter object must contain a 'name' key
+    4. The 'apply_method' can be 'immediate' or 'pending-reboot'
+    5. Some parameter resets require a database reboot to take effect
+    6. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without a confirmation token:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the reset
+    - `impact`: Description of the impact of resetting parameters
+    - `confirmation_token`: Token to use in a subsequent call
+    - `message`: Instructions for confirming the reset
+    
+    If called with a valid confirmation token:
+    - `message`: Success message confirming the reset
+    - `parameters_reset`: Number of parameters that were reset
+    - `DBClusterParameterGroupStatus`: The AWS API response
+    
+    <examples>
+    Example usage scenarios:
+    1. Start reset process for all parameters (get confirmation token):
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - reset_all_parameters=true
+    
+    2. Confirm reset for all parameters:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - reset_all_parameters=true
+       - confirmation_token="abc123xyz" (token received from step 1)
+    
+    3. Reset specific parameters:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - reset_all_parameters=false
+       - parameters=[
+           {"name": "max_connections", "apply_method": "pending-reboot"},
+           {"name": "shared_buffers", "apply_method": "pending-reboot"}
+         ]
+       - confirmation_token="abc123xyz" (token received from separate call)
+    </examples>
+    """
+    return await parameter.reset_db_cluster_parameter_group(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_parameter_group_name=db_cluster_parameter_group_name,
+        reset_all_parameters=reset_all_parameters,
+        parameters=parameters,
+        confirmation_token=confirmation_token,
+    )
+
+
+@mcp.tool(name='describe_db_cluster_parameters')
+async def describe_db_cluster_parameters_tool(
+    ctx: Context,
+    db_cluster_parameter_group_name: str = Field(description='The name of the DB cluster parameter group'),
+    source: Optional[str] = Field(default=None, description='The parameter source'),
+    marker: Optional[str] = Field(default=None, description='Pagination token'),
+    max_records: Optional[int] = Field(default=None, description='Maximum number of records to return'),
+) -> Dict[str, Any]:
+    """Returns a list of parameters for a DB cluster parameter group.
+    
+    <use_case>
+    Use this tool to retrieve detailed information about the parameters in a specific
+    DB cluster parameter group. This allows you to inspect parameter settings before
+    making modifications or to understand current database configuration.
+    </use_case>
+    
+    <important_notes>
+    1. The source parameter can filter results by parameter origin ('engine-default', 'user', or 'system')
+    2. Pagination is supported through marker and max_records parameters
+    3. Parameters have different data types, allowed values, and modifiability
+    4. Each parameter includes description and metadata about its purpose
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `formatted_parameters`: A simplified representation of parameters
+    - `Parameters`: The full list of parameters from the AWS API
+    - `Marker`: Pagination token for retrieving the next set of results (if applicable)
+    
+    <examples>
+    Example usage scenarios:
+    1. List all parameters in a group:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+    
+    2. List only user-modified parameters:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - source="user"
+    
+    3. Paginate through a large parameter list:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - max_records=100
+       (Then in subsequent calls)
+       - db_cluster_parameter_group_name="prod-mysql-params"
+       - max_records=100
+       - marker="token-from-previous-response"
+    </examples>
+    """
+    return await parameter.describe_db_cluster_parameters(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        db_cluster_parameter_group_name=db_cluster_parameter_group_name,
+        source=source,
+        marker=marker,
+        max_records=max_records,
+    )
+
+
+@mcp.tool(name='describe_db_instance_parameters')
+async def describe_db_instance_parameters_tool(
+    ctx: Context,
+    db_parameter_group_name: str = Field(description='The name of the DB parameter group'),
+    source: Optional[str] = Field(default=None, description='The parameter source'),
+    marker: Optional[str] = Field(default=None, description='Pagination token'),
+    max_records: Optional[int] = Field(default=None, description='Maximum number of records to return'),
+) -> Dict[str, Any]:
+    """Returns a list of parameters for a DB instance parameter group.
+    
+    <use_case>
+    Use this tool to retrieve detailed information about the parameters in a specific
+    DB instance parameter group. This allows you to inspect parameter settings before
+    making modifications or to understand current database configuration.
+    </use_case>
+    
+    <important_notes>
+    1. The source parameter can filter results by parameter origin ('engine-default', 'user', or 'system')
+    2. Pagination is supported through marker and max_records parameters
+    3. Parameters have different data types, allowed values, and modifiability
+    4. Each parameter includes description and metadata about its purpose
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `formatted_parameters`: A simplified representation of parameters
+    - `Parameters`: The full list of parameters from the AWS API
+    - `Marker`: Pagination token for retrieving the next set of results (if applicable)
+    
+    <examples>
+    Example usage scenarios:
+    1. List all parameters in a group:
+       - db_parameter_group_name="prod-oracle-params"
+    
+    2. List only user-modified parameters:
+       - db_parameter_group_name="prod-oracle-params"
+       - source="user"
+    
+    3. Paginate through a large parameter list:
+       - db_parameter_group_name="prod-oracle-params"
+       - max_records=100
+       (Then in subsequent calls)
+       - db_parameter_group_name="prod-oracle-params"
+       - max_records=100
+       - marker="token-from-previous-response"
+    </examples>
+    """
+    return await parameter.describe_db_instance_parameters(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        db_parameter_group_name=db_parameter_group_name,
+        source=source,
+        marker=marker,
+        max_records=max_records,
+    )
+
+
+@mcp.tool(name='describe_db_cluster_parameter_groups')
+async def describe_db_cluster_parameter_groups_tool(
+    ctx: Context,
+    db_cluster_parameter_group_name: Optional[str] = Field(default=None, description='The name of the DB cluster parameter group'),
+    marker: Optional[str] = Field(default=None, description='Pagination token'),
+    max_records: Optional[int] = Field(default=None, description='Maximum number of records to return'),
+) -> Dict[str, Any]:
+    """Returns a list of DB cluster parameter group descriptions.
+    
+    <use_case>
+    Use this tool to discover and examine DB cluster parameter groups in your AWS account.
+    This helps you identify existing parameter groups that can be applied to clusters or
+    that may need modification.
+    </use_case>
+    
+    <important_notes>
+    1. If db_cluster_parameter_group_name is provided, only that parameter group's details are returned
+    2. Pagination is supported through marker and max_records parameters
+    3. Each parameter group includes information about its family and description
+    4. This tool provides a high-level view of parameter groups - use describe_db_cluster_parameters 
+       to see the actual parameters within a group
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `formatted_parameter_groups`: A simplified representation of parameter groups
+    - `DBClusterParameterGroups`: The full list of parameter groups from the AWS API
+    - `Marker`: Pagination token for retrieving the next set of results (if applicable)
+    
+    <examples>
+    Example usage scenarios:
+    1. List all cluster parameter groups:
+       (no parameters)
+    
+    2. Get details for a specific parameter group:
+       - db_cluster_parameter_group_name="prod-mysql-params"
+    
+    3. Paginate through many parameter groups:
+       - max_records=20
+       (Then in subsequent calls)
+       - max_records=20
+       - marker="token-from-previous-response"
+    </examples>
+    """
+    return await parameter.describe_db_cluster_parameter_groups(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        db_cluster_parameter_group_name=db_cluster_parameter_group_name,
+        marker=marker,
+        max_records=max_records,
+    )
+
+
+@mcp.tool(name='describe_db_instance_parameter_groups')
+async def describe_db_instance_parameter_groups_tool(
+    ctx: Context,
+    db_parameter_group_name: Optional[str] = Field(default=None, description='The name of the DB parameter group'),
+    marker: Optional[str] = Field(default=None, description='Pagination token'),
+    max_records: Optional[int] = Field(default=None, description='Maximum number of records to return'),
+) -> Dict[str, Any]:
+    """Returns a list of DB instance parameter group descriptions.
+    
+    <use_case>
+    Use this tool to discover and examine DB instance parameter groups in your AWS account.
+    This helps you identify existing parameter groups that can be applied to instances or
+    that may need modification.
+    </use_case>
+    
+    <important_notes>
+    1. If db_parameter_group_name is provided, only that parameter group's details are returned
+    2. Pagination is supported through marker and max_records parameters
+    3. Each parameter group includes information about its family and description
+    4. This tool provides a high-level view of parameter groups - use describe_db_instance_parameters 
+       to see the actual parameters within a group
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `formatted_parameter_groups`: A simplified representation of parameter groups
+    - `DBParameterGroups`: The full list of parameter groups from the AWS API
+    - `Marker`: Pagination token for retrieving the next set of results (if applicable)
+    
+    <examples>
+    Example usage scenarios:
+    1. List all instance parameter groups:
+       (no parameters)
+    
+    2. Get details for a specific parameter group:
+       - db_parameter_group_name="prod-oracle-params"
+    
+    3. Paginate through many parameter groups:
+       - max_records=20
+       (Then in subsequent calls)
+       - max_records=20
+       - marker="token-from-previous-response"
+    </examples>
+    """
+    return await parameter.describe_db_instance_parameter_groups(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        db_parameter_group_name=db_parameter_group_name,
         marker=marker,
         max_records=max_records,
     )
