@@ -32,6 +32,14 @@ from .constants import MCP_SERVER_VERSION
 from .resources import (
     get_cluster_detail_resource,
     get_cluster_list_resource,
+    get_instance_detail_resource,
+    get_instance_list_resource,
+)
+from .models import (
+    ClusterModel,
+    ClusterListModel,
+    InstanceModel,
+    InstanceListModel,
 )
 
 logger.remove()
@@ -74,7 +82,7 @@ Always verify resource identifiers and understand the impact of operations befor
 # ===== RESOURCES =====
 # read-only access to RDS data
 
-@mcp.resource(uri='aws-rds://clusters', name='DB Clusters', mime_type='application/json')
+@mcp.resource(uri='aws-rds://db-cluster', name='DB Clusters', mime_type='application/json')
 async def list_clusters_resource() -> str:
     """List all available Amazon RDS clusters in your account.
     
@@ -122,7 +130,7 @@ async def list_clusters_resource() -> str:
 
 
 @mcp.resource(
-    uri='aws-rds://clusters/{cluster_id}',
+    uri='aws-rds://db-cluster/{cluster_id}',
     name='DB Cluster Details',
     mime_type='application/json',
 )
@@ -169,6 +177,79 @@ async def get_cluster_resource(cluster_id: str) -> str:
     </examples>
     """
     return await get_cluster_detail_resource(cluster_id, get_rds_client())
+
+
+@mcp.resource(uri='aws-rds://db-instance', name='DB Instances', mime_type='application/json')
+async def list_instances_resource() -> str:
+    """List all available Amazon RDS instances in your account.
+    
+    <use_case>
+    Use this resource to discover all available RDS database instances in your AWS account.
+    </use_case>
+    
+    <important_notes>
+    1. The response provides essential information about each instance
+    2. Instance identifiers returned can be used with other tools and resources in this MCP server
+    3. Instances are filtered to the AWS region specified in your environment configuration
+    4. Use the `aws-rds://db-instance/{instance_id}` to get more information about a specific instance
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `instances`: Array of DB instance objects
+    - `count`: Number of instances found
+    - `resource_uri`: Base URI for accessing instances
+    
+    <examples>
+    Example usage scenarios:
+    1. Discovery and inventory:
+       - List all available RDS instances to create an inventory
+       - Identify instance engine types and versions in your environment
+    2. Preparation for other operations:
+       - Find specific instance identifiers to use with management tools
+    </examples>
+    """
+    return await get_instance_list_resource(get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-instance/{instance_id}',
+    name='DB Instance Details',
+    mime_type='application/json',
+)
+async def get_instance_resource(instance_id: str) -> str:
+    """Get detailed information about a specific Amazon RDS instance.
+    
+    <use_case>
+    Use this resource to retrieve comprehensive details about a specific RDS database instance
+    identified by its instance ID.
+    </use_case>
+    
+    <important_notes>
+    1. The instance ID must exist in your AWS account and region
+    2. The response contains full configuration details about the specified instance
+    3. Error responses will be returned if the instance doesn't exist or there are permission issues
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing detailed instance information including:
+    - `instance_id`: The unique identifier for the instance
+    - `status`: Current status of the instance
+    - `engine`: Database engine type
+    - `engine_version`: The version of the database engine
+    - `endpoint`: Connection endpoint information
+    - `storage`: Storage configuration details
+    - `multi_az`: Whether the instance is a Multi-AZ deployment
+    - Other instance details, settings, and configuration
+    
+    <examples>
+    Example usage scenarios:
+    1. Detailed instance configuration review
+    2. Connection information lookup
+    3. Storage configuration analysis
+    </examples>
+    """
+    return await get_instance_detail_resource(instance_id, get_rds_client())
 
 
 # ===== CLUSTER MANAGEMENT TOOLS =====
