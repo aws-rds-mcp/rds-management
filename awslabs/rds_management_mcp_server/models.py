@@ -16,7 +16,7 @@
 
 from datetime import datetime
 from pydantic import BaseModel, Field
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Any
 
 
 class VpcSecurityGroup(BaseModel):
@@ -187,3 +187,42 @@ class BackupListModel(BaseModel):
                                                          description='List of DB cluster automated backups')
     count: int = Field(description='Total number of backups')
     resource_uri: str = Field(description='The resource URI for the backups')
+
+
+class ParameterModel(BaseModel):
+    """DB Parameter model."""
+    name: str = Field(description='The name of the parameter')
+    value: Optional[str] = Field(None, description='The value of the parameter')
+    description: Optional[str] = Field(None, description='Description of the parameter')
+    allowed_values: Optional[str] = Field(None, description='The valid range of values for the parameter')
+    source: Optional[str] = Field(None, description='The source of the parameter value')
+    apply_type: Optional[str] = Field(None, description='The apply type of the parameter')
+    data_type: Optional[str] = Field(None, description='The data type of the parameter')
+    is_modifiable: bool = Field(description='Whether the parameter can be modified')
+    
+
+class ParameterGroupModel(BaseModel):
+    """DB Parameter group model."""
+    name: str = Field(description='The name of the DB parameter group')
+    description: str = Field(description='The description of the parameter group')
+    family: str = Field(description='The DB parameter group family name')
+    type: str = Field(description='The type of the parameter group (cluster or instance)')
+    parameters: List[ParameterModel] = Field(default_factory=list, description='List of parameters')
+    arn: Optional[str] = Field(None, description='The Amazon Resource Name (ARN) for the parameter group')
+    tags: Dict[str, str] = Field(default_factory=dict, description='A list of tags')
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this parameter group')
+
+
+class ParameterGroupListModel(BaseModel):
+    """DB Parameter group list model."""
+    parameter_groups: List[ParameterGroupModel] = Field(default_factory=list, description='List of DB parameter groups')
+    count: int = Field(description='Total number of DB parameter groups')
+    resource_uri: str = Field(description='The resource URI for the DB parameter groups')
+
+
+class ParameterListModel(BaseModel):
+    """DB Parameter list model."""
+    parameters: List[ParameterModel] = Field(default_factory=list, description='List of DB parameters')
+    count: int = Field(description='Total number of DB parameters')
+    parameter_group_name: str = Field(description='The name of the DB parameter group')
+    resource_uri: str = Field(description='The resource URI for the DB parameters')
