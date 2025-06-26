@@ -149,3 +149,41 @@ class InstanceListModel(BaseModel):
     )
     count: int = Field(description='Total number of DB instances')
     resource_uri: str = Field(description='The resource URI for the DB instances')
+
+
+class SnapshotModel(BaseModel):
+    """DB Cluster Snapshot model."""
+    
+    snapshot_id: str = Field(description='The identifier for the DB cluster snapshot')
+    cluster_id: str = Field(description='The identifier of the DB cluster')
+    creation_time: datetime = Field(description='The time when the snapshot was taken')
+    status: str = Field(description='The status of the DB cluster snapshot')
+    engine: str = Field(description='The database engine')
+    engine_version: str = Field(description='The version of the database engine')
+    port: Optional[int] = Field(None, description='The port that the DB cluster was listening on')
+    vpc_id: Optional[str] = Field(None, description='The VPC ID associated with the DB cluster snapshot')
+    tags: Dict[str, str] = Field(default_factory=dict, description='A list of tags')
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this snapshot')
+
+
+class AutomatedBackupModel(BaseModel):
+    """DB Cluster Automated Backup model."""
+    
+    backup_id: str = Field(description='The identifier for the automated backup')
+    cluster_id: str = Field(description='The identifier of the DB cluster')
+    earliest_time: datetime = Field(description='The earliest restorable time')
+    latest_time: datetime = Field(description='The latest restorable time')
+    status: str = Field(description='The status of the automated backup')
+    engine: str = Field(description='The database engine')
+    engine_version: str = Field(description='The version of the database engine')
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this backup')
+
+
+class BackupListModel(BaseModel):
+    """Backup list model including both snapshots and automated backups."""
+    
+    snapshots: List[SnapshotModel] = Field(default_factory=list, description='List of DB cluster snapshots')
+    automated_backups: List[AutomatedBackupModel] = Field(default_factory=list, 
+                                                         description='List of DB cluster automated backups')
+    count: int = Field(description='Total number of backups')
+    resource_uri: str = Field(description='The resource URI for the backups')

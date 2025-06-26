@@ -27,13 +27,19 @@ from mcp.server.fastmcp import Context, FastMCP
 from pydantic import Field
 
 # modules
-from . import cluster, instance
+from . import backup, cluster, instance
 from .constants import MCP_SERVER_VERSION
 from .resources import (
     get_cluster_detail_resource,
     get_cluster_list_resource,
     get_instance_detail_resource,
     get_instance_list_resource,
+)
+from .backup import (
+    get_all_cluster_backups_resource,
+    get_all_instance_backups_resource,
+    get_cluster_backups_resource,
+    get_instance_backups_resource,
 )
 from .models import (
     ClusterModel,
@@ -250,6 +256,176 @@ async def get_instance_resource(instance_id: str) -> str:
     </examples>
     """
     return await get_instance_detail_resource(instance_id, get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-cluster/{db_cluster_identifier}/backups',
+    name='DB Cluster Backups',
+    mime_type='application/json',
+)
+async def cluster_backups_resource(db_cluster_identifier: str) -> str:
+    """List all backups including manual snapshot and auto backups for a specific db cluster.
+    
+    <use_case>
+    Use this resource to discover all available backups for a specific RDS database cluster,
+    including both manual snapshots and automated backups. This provides a comprehensive
+    view of all restore points available for a cluster.
+    </use_case>
+    
+    <important_notes>
+    1. The cluster ID must exist in your AWS account and region
+    2. The response includes both manual snapshots and automated backups in a single view
+    3. Automated backups are created according to your retention policy settings
+    4. Manual snapshots remain until explicitly deleted
+    5. Both types can be used for point-in-time recovery operations
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `snapshots`: Array of manual DB cluster snapshots
+    - `automated_backups`: Array of automated backups
+    - `count`: Total number of backups available
+    - `resource_uri`: The resource URI for these backups
+    
+    <examples>
+    Example usage scenarios:
+    1. Disaster recovery planning:
+       - Identify available restore points before performing operations
+       - Verify backup schedules are working as expected
+    2. Backup management:
+       - Identify old snapshots that could be removed
+       - Confirm automated backups are being created according to policy
+    </examples>
+    """
+    return await get_cluster_backups_resource(db_cluster_identifier, get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-instance/{db_instance_identifier}/backups',
+    name='DB Instance Backups',
+    mime_type='application/json',
+)
+async def instance_backups_resource(db_instance_identifier: str) -> str:
+    """List of backups including manual snapshot and auto backups for a specific db instance.
+    
+    <use_case>
+    Use this resource to discover all available backups for a specific RDS database instance,
+    including both manual snapshots and automated backups. This provides a comprehensive
+    view of all restore points available for an instance.
+    </use_case>
+    
+    <important_notes>
+    1. The instance ID must exist in your AWS account and region
+    2. The response includes both manual snapshots and automated backups in a single view
+    3. Automated backups are created according to your retention policy settings
+    4. Manual snapshots remain until explicitly deleted
+    5. Both types can be used for point-in-time recovery operations
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `snapshots`: Array of manual DB instance snapshots
+    - `automated_backups`: Array of automated backups
+    - `count`: Total number of backups available
+    - `resource_uri`: The resource URI for these backups
+    
+    <examples>
+    Example usage scenarios:
+    1. Disaster recovery planning:
+       - Identify available restore points before performing operations
+       - Verify backup schedules are working as expected
+    2. Backup management:
+       - Identify old snapshots that could be removed
+       - Confirm automated backups are being created according to policy
+    </examples>
+    """
+    return await get_instance_backups_resource(db_instance_identifier, get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-cluster/backups',
+    name='All DB Cluster Backups',
+    mime_type='application/json',
+)
+async def all_cluster_backups_resource() -> str:
+    """List all backups including manual snapshot and auto backups across all DB clusters.
+    
+    <use_case>
+    Use this resource to discover all available backups across all RDS database clusters
+    in your AWS account, including both manual snapshots and automated backups. This provides
+    a comprehensive view of all restore points available in your environment without having to
+    specify an individual cluster.
+    </use_case>
+    
+    <important_notes>
+    1. The response includes backups for all clusters in the current region
+    2. Both manual snapshots and automated backups are included in the results
+    3. This resource is useful for getting a complete overview of all backup resources
+    4. For large environments with many clusters, this may return a large amount of data
+    5. Results can be filtered client-side by cluster ID if needed
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `snapshots`: Array of manual DB cluster snapshots across all clusters
+    - `automated_backups`: Array of automated backups across all clusters
+    - `count`: Total number of backups available
+    - `resource_uri`: The resource URI for these backups
+    
+    <examples>
+    Example usage scenarios:
+    1. Backup inventory management:
+       - Get a complete inventory of all backup resources in the account
+       - Identify snapshots that could be deleted to reduce storage costs
+    2. Cross-cluster restore planning:
+       - Find available snapshots across all clusters for restore operations
+       - Plan migration or disaster recovery operations
+    </examples>
+    """
+    return await get_all_cluster_backups_resource(get_rds_client())
+
+
+@mcp.resource(
+    uri='aws-rds://db-instance/backups',
+    name='All DB Instance Backups',
+    mime_type='application/json',
+)
+async def all_instance_backups_resource() -> str:
+    """List all backups including manual snapshot and auto backups across all DB instances.
+    
+    <use_case>
+    Use this resource to discover all available backups across all RDS database instances
+    in your AWS account, including both manual snapshots and automated backups. This provides
+    a comprehensive view of all restore points available in your environment without having to
+    specify an individual instance.
+    </use_case>
+    
+    <important_notes>
+    1. The response includes backups for all instances in the current region
+    2. Both manual snapshots and automated backups are included in the results
+    3. This resource is useful for getting a complete overview of all backup resources
+    4. For large environments with many instances, this may return a large amount of data
+    5. Results can be filtered client-side by instance ID if needed
+    </important_notes>
+    
+    ## Response structure
+    Returns a JSON document containing:
+    - `snapshots`: Array of manual DB instance snapshots across all instances
+    - `automated_backups`: Array of automated backups across all instances
+    - `count`: Total number of backups available
+    - `resource_uri`: The resource URI for these backups
+    
+    <examples>
+    Example usage scenarios:
+    1. Backup inventory management:
+       - Get a complete inventory of all backup resources in the account
+       - Identify snapshots that could be deleted to reduce storage costs
+    2. Cross-instance restore planning:
+       - Find available snapshots across all instances for restore operations
+       - Plan migration or disaster recovery operations
+    </examples>
+    """
+    return await get_all_instance_backups_resource(get_rds_client())
 
 
 # ===== CLUSTER MANAGEMENT TOOLS =====
@@ -959,6 +1135,250 @@ async def describe_db_instances_tool(
         filters=filters,
         marker=marker,
         max_records=max_records,
+    )
+
+
+@mcp.tool(name='create_db_cluster_snapshot')
+async def create_db_cluster_snapshot_tool(
+    ctx: Context,
+    db_cluster_snapshot_identifier: str = Field(description='The identifier for the DB cluster snapshot'),
+    db_cluster_identifier: str = Field(description='The identifier of the DB cluster'),
+    tags: Optional[List[Dict[str, str]]] = Field(default=None, description='A list of tags to apply to the snapshot'),
+) -> Dict[str, Any]:
+    """Creates a manual snapshot of an RDS DB cluster.
+    
+    <use_case>
+    Use this tool to create a point-in-time snapshot of an Amazon RDS DB cluster.
+    Manual snapshots are useful for long-term backups, before making major changes,
+    or for creating copies of databases for development or testing purposes.
+    </use_case>
+    
+    <important_notes>
+    1. Snapshot identifiers must follow naming rules: 1-255 alphanumeric characters
+    2. Creating a snapshot does not interrupt database operations
+    3. Manual snapshots are retained indefinitely until explicitly deleted
+    4. Snapshots can be used to restore a cluster to the exact point when the snapshot was taken
+    5. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the snapshot creation
+    - `formatted_snapshot`: A simplified representation of the snapshot
+    - `DBClusterSnapshot`: The full AWS API response containing snapshot details including:
+      - `DBClusterSnapshotIdentifier`: The snapshot identifier
+      - `DBClusterIdentifier`: The source cluster identifier
+      - `SnapshotCreateTime`: When the snapshot was created
+      - `Status`: The current status (usually "creating" initially)
+      - Other snapshot details like engine version, port, etc.
+    
+    <examples>
+    Example usage scenarios:
+    1. Create a backup before major changes:
+       - db_cluster_snapshot_identifier="pre-upgrade-snapshot"
+       - db_cluster_identifier="production-db-cluster"
+    
+    2. Create a tagged snapshot for specific purposes:
+       - db_cluster_snapshot_identifier="monthly-backup-jan2023" 
+       - db_cluster_identifier="finance-db-cluster"
+       - tags=[{"Purpose": "Monthly Backup", "Department": "Finance"}]
+    </examples>
+    """
+    return await backup.create_db_cluster_snapshot(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_snapshot_identifier=db_cluster_snapshot_identifier,
+        db_cluster_identifier=db_cluster_identifier,
+        tags=tags,
+    )
+
+
+@mcp.tool(name='restore_db_cluster_from_snapshot')
+async def restore_db_cluster_from_snapshot_tool(
+    ctx: Context,
+    db_cluster_identifier: str = Field(description='The identifier for the new DB cluster'),
+    snapshot_identifier: str = Field(description='The identifier of the DB cluster snapshot to restore from'),
+    engine: str = Field(description='The database engine to use'),
+    vpc_security_group_ids: Optional[List[str]] = Field(default=None, description='A list of VPC security group IDs'),
+    db_subnet_group_name: Optional[str] = Field(default=None, description='A DB subnet group to associate with the restored DB cluster'),
+    engine_version: Optional[str] = Field(default=None, description='The version number of the database engine to use'),
+    port: Optional[int] = Field(default=None, description='The port number on which the DB cluster accepts connections'),
+    availability_zones: Optional[List[str]] = Field(default=None, description='A list of Availability Zones'),
+    tags: Optional[List[Dict[str, str]]] = Field(default=None, description='A list of tags to apply to the restored cluster'),
+) -> Dict[str, Any]:
+    """Creates a new RDS DB cluster from a DB cluster snapshot.
+    
+    <use_case>
+    Use this tool to restore an Amazon RDS DB cluster from a previously created snapshot.
+    This is useful for recovery operations, creating development copies of production
+    databases, or migrating databases between environments.
+    </use_case>
+    
+    <important_notes>
+    1. The new cluster identifier must be unique and follow naming rules
+    2. The engine must match or be compatible with the engine of the source snapshot
+    3. The restored cluster will not include any instances - you'll need to create them separately
+    4. When run with readonly=True (default), this operation will be simulated but not actually performed
+    5. Engine version can be upgraded during restore but not downgraded
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the restoration
+    - `formatted_cluster`: A simplified representation of the new cluster
+    - `DBCluster`: The full AWS API response containing cluster details including:
+      - `DBClusterIdentifier`: The new cluster identifier
+      - `Status`: The current status (usually "creating" initially)
+      - `Engine`, `EngineVersion`: Database engine information
+      - Other cluster configuration details
+    
+    <examples>
+    Example usage scenarios:
+    1. Restore for disaster recovery:
+       - db_cluster_identifier="restored-production-db"
+       - snapshot_identifier="pre-incident-snapshot"
+       - engine="aurora-mysql"
+    
+    2. Create a development copy with custom settings:
+       - db_cluster_identifier="dev-db-cluster"
+       - snapshot_identifier="production-snapshot-20230615"
+       - engine="aurora-postgresql"
+       - vpc_security_group_ids=["sg-12345678"]
+       - engine_version="13.6"
+    </examples>
+    """
+    return await backup.restore_db_cluster_from_snapshot(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_identifier=db_cluster_identifier,
+        snapshot_identifier=snapshot_identifier,
+        engine=engine,
+        vpc_security_group_ids=vpc_security_group_ids,
+        db_subnet_group_name=db_subnet_group_name,
+        engine_version=engine_version,
+        port=port,
+        availability_zones=availability_zones,
+        tags=tags,
+    )
+
+
+@mcp.tool(name='restore_db_cluster_to_point_in_time')
+async def restore_db_cluster_to_point_in_time_tool(
+    ctx: Context,
+    db_cluster_identifier: str = Field(description='The identifier for the new DB cluster'),
+    source_db_cluster_identifier: str = Field(description='The identifier of the source DB cluster'),
+    restore_to_time: Optional[str] = Field(default=None, description='The date and time to restore the cluster to (format: YYYY-MM-DDTHH:MM:SSZ)'),
+    use_latest_restorable_time: Optional[bool] = Field(default=None, description='Whether to restore to the latest restorable backup time'),
+    port: Optional[int] = Field(default=None, description='The port number for the new DB cluster'),
+    db_subnet_group_name: Optional[str] = Field(default=None, description='The DB subnet group name to use for the new DB cluster'),
+    vpc_security_group_ids: Optional[List[str]] = Field(default=None, description='A list of VPC security group IDs'),
+    tags: Optional[List[Dict[str, str]]] = Field(default=None, description='A list of tags to apply to the restored cluster'),
+) -> Dict[str, Any]:
+    """Restores a DB cluster to a specific point in time.
+    
+    <use_case>
+    Use this tool to restore an Amazon RDS DB cluster to a specific point in time within the
+    retention period. This is useful for recovering from logical errors, failed operations,
+    or to retrieve data as it existed at a particular time.
+    </use_case>
+    
+    <important_notes>
+    1. The new cluster identifier must be unique and follow naming rules
+    2. You must provide either restore_to_time or use_latest_restorable_time
+    3. The restore time must be within the backup retention window
+    4. The restored cluster will not include any instances - you'll need to create them separately
+    5. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    Returns a dictionary with the following keys:
+    - `message`: Success message confirming the restoration
+    - `formatted_cluster`: A simplified representation of the new cluster
+    - `DBCluster`: The full AWS API response containing cluster details including:
+      - `DBClusterIdentifier`: The new cluster identifier
+      - `Status`: The current status (usually "creating" initially)
+      - `Engine`, `EngineVersion`: Database engine information
+      - Other cluster configuration details
+    
+    <examples>
+    Example usage scenarios:
+    1. Restore to a specific timestamp:
+       - db_cluster_identifier="recovery-db-cluster"
+       - source_db_cluster_identifier="production-db-cluster"
+       - restore_to_time="2023-06-15T08:45:00Z"
+    
+    2. Restore to the latest possible time:
+       - db_cluster_identifier="recovery-db-cluster"
+       - source_db_cluster_identifier="production-db-cluster"
+       - use_latest_restorable_time=true
+    </examples>
+    """
+    return await backup.restore_db_cluster_to_point_in_time(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_identifier=db_cluster_identifier,
+        source_db_cluster_identifier=source_db_cluster_identifier,
+        restore_to_time=restore_to_time,
+        use_latest_restorable_time=use_latest_restorable_time,
+        port=port,
+        db_subnet_group_name=db_subnet_group_name,
+        vpc_security_group_ids=vpc_security_group_ids,
+        tags=tags,
+    )
+
+
+@mcp.tool(name='delete_db_cluster_snapshot')
+async def delete_db_cluster_snapshot_tool(
+    ctx: Context,
+    db_cluster_snapshot_identifier: str = Field(description='The identifier for the DB cluster snapshot'),
+    confirmation_token: Optional[str] = Field(default=None, description='The confirmation token for the operation - required for destructive operations'),
+) -> Dict[str, Any]:
+    """Deletes a DB cluster snapshot.
+    
+    <use_case>
+    Use this tool to permanently delete an Amazon RDS DB cluster snapshot. This can be used
+    for managing storage costs by removing unnecessary or outdated snapshots.
+    </use_case>
+    
+    <important_notes>
+    1. This is a destructive operation that permanently deletes the snapshot
+    2. A confirmation token is required for safety - first call without token to receive one
+    3. Once deleted, a snapshot cannot be recovered
+    4. When run with readonly=True (default), this operation will be simulated but not actually performed
+    </important_notes>
+    
+    ## Response structure
+    If called without a confirmation token:
+    - `requires_confirmation`: Always true
+    - `warning`: Warning message about the deletion
+    - `impact`: Description of the impact of deletion
+    - `confirmation_token`: Token to use in a subsequent call
+    - `message`: Instructions for confirming the deletion
+    
+    If called with a valid confirmation token:
+    - `message`: Success message confirming deletion
+    - `formatted_snapshot`: A simplified representation of the deleted snapshot
+    - `DBClusterSnapshot`: The full AWS API response containing snapshot details
+    
+    <examples>
+    Example usage scenarios:
+    1. Start deletion process (get confirmation token):
+       - db_cluster_snapshot_identifier="old-backup-snapshot"
+    
+    2. Confirm deletion (with confirmation token):
+       - db_cluster_snapshot_identifier="old-backup-snapshot"
+       - confirmation_token="abc123xyz" (token received from step 1)
+    </examples>
+    """
+    return await backup.delete_db_cluster_snapshot(
+        ctx=ctx,
+        rds_client=get_rds_client(),
+        readonly=_readonly,
+        db_cluster_snapshot_identifier=db_cluster_snapshot_identifier,
+        confirmation_token=confirmation_token,
     )
 
 
