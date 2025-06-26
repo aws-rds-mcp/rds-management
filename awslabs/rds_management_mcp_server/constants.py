@@ -66,8 +66,12 @@ DEFAULT_PORT_SQLSERVER = 1433
 DEFAULT_PORT_AURORA = 3306  # compatible with MySQL
 DEFAULT_PORT_AURORA_POSTGRESQL = 5432  # Aurora PostgreSQL
 
-# Resource URI Prefixes
-RESOURCE_PREFIX_CLUSTER = 'aws-rds://clusters'
+# Resource URIs
+RESOURCE_PREFIX_DB_CLUSTER = "aws-rds://clusters"
+RESOURCE_PREFIX_DB_INSTANCE = "aws-rds://instances"
+
+# Default config values
+DEFAULT_MAX_ITEMS = 100
 
 # Confirmation Messages
 CONFIRM_DELETE_CLUSTER = """
