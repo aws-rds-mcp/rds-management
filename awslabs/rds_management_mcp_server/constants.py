@@ -86,6 +86,17 @@ This action will:
 This operation cannot be undone.
 """
 
+CONFIRM_DELETE_INSTANCE = """
+⚠️ WARNING: You are about to delete the database instance '{instance_id}'.
+
+This action will:
+- Permanently delete all data in the instance (unless a final snapshot is created)
+- Cause downtime for any applications using this database
+- Remove all automated backups after the retention period
+
+This operation cannot be undone.
+"""
+
 CONFIRM_STOP_CLUSTER = """
 ⚠️ NOTICE: You are about to stop the database cluster '{cluster_id}'.
 
@@ -97,6 +108,10 @@ This action will:
 
 The cluster can be restarted later.
 """
+
+CONFIRM_STOP = "CONFIRM_STOP"
+CONFIRM_START = "CONFIRM_START"
+CONFIRM_REBOOT = "CONFIRM_REBOOT"
 
 CONFIRM_FAILOVER = """
 ⚠️ NOTICE: You are about to initiate a failover for cluster '{cluster_id}'.
@@ -111,6 +126,7 @@ This is typically used for disaster recovery or maintenance.
 
 # Operation Impact Descriptions
 OPERATION_IMPACTS = {
+    # Cluster operations
     'delete_db_cluster': {
         'risk': RISK_CRITICAL,
         'downtime': 'Permanent',
@@ -152,5 +168,42 @@ OPERATION_IMPACTS = {
         'data_loss': 'None',
         'reversible': True,
         'estimated_time': '5-10 minutes',
+    },
+    
+    # Instance operations
+    'delete_db_instance': {
+        'risk': RISK_CRITICAL,
+        'downtime': 'Permanent',
+        'data_loss': 'All data will be lost unless final snapshot is taken',
+        'reversible': False,
+        'estimated_time': '3-5 minutes',
+    },
+    'stop_db_instance': {
+        'risk': RISK_HIGH,
+        'downtime': 'Until instance is restarted',
+        'data_loss': 'None',
+        'reversible': True,
+        'estimated_time': '1-3 minutes',
+    },
+    'reboot_db_instance': {
+        'risk': RISK_HIGH,
+        'downtime': '1-3 minutes',
+        'data_loss': 'None',
+        'reversible': False,
+        'estimated_time': '1-3 minutes',
+    },
+    'start_db_instance': {
+        'risk': RISK_LOW,
+        'downtime': 'None',
+        'data_loss': 'None',
+        'reversible': True,
+        'estimated_time': '3-5 minutes',
+    },
+    'modify_db_instance': {
+        'risk': RISK_HIGH,
+        'downtime': 'Depends on modifications',
+        'data_loss': 'None',
+        'reversible': True,
+        'estimated_time': 'Varies',
     },
 }
