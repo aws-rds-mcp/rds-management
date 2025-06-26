@@ -19,9 +19,21 @@ import json
 from typing import Any, Dict
 from loguru import logger
 from .constants import (
-    RESOURCE_PREFIX_CLUSTER,
+    RESOURCE_PREFIX_DB_CLUSTER,
+    RESOURCE_PREFIX_DB_INSTANCE,
+    DEFAULT_MAX_ITEMS,
 )
-from .utils import format_cluster_info, handle_aws_error
+from .models import (
+    ClusterListModel,
+    ClusterMember,
+    ClusterModel,
+    InstanceEndpoint,
+    InstanceListModel,
+    InstanceModel,
+    InstanceStorage,
+    VpcSecurityGroup,
+)
+from .utils import convert_datetime_to_string, format_cluster_info, handle_aws_error
 
 
 async def get_cluster_list_resource(rds_client: Any) -> str:
@@ -35,22 +47,81 @@ async def get_cluster_list_resource(rds_client: Any) -> str:
     """
     try:
         logger.info("Getting cluster list resource")
-        response = await asyncio.to_thread(rds_client.describe_db_clusters)
-        
+
         clusters = []
+        response = await asyncio.to_thread(rds_client.describe_db_clusters)
+
         for cluster in response.get('DBClusters', []):
-            clusters.append(format_cluster_info(cluster))
-        
-        result = {
-            'clusters': clusters,
-            'count': len(clusters),
-            'resource_uri': RESOURCE_PREFIX_CLUSTER,
-        }
-        
-        return json.dumps(result, indent=2)
+            clusters.append(_format_cluster_model(cluster))
+
+        # pagination if there's a marker for next page
+        while 'Marker' in response:
+            response = await asyncio.to_thread(
+                rds_client.describe_db_clusters, Marker=response['Marker']
+            )
+            for cluster in response.get('DBClusters', []):
+                clusters.append(_format_cluster_model(cluster))
+
+        # Create the model
+        result = ClusterListModel(
+            clusters=clusters, 
+            count=len(clusters), 
+            resource_uri=RESOURCE_PREFIX_DB_CLUSTER
+        )
+
+        return json.dumps(result.model_dump(), indent=2)
     except Exception as e:
         error_result = await handle_aws_error('get_cluster_list_resource', e)
         return json.dumps(error_result, indent=2)
+
+
+def _format_cluster_model(cluster: Dict[str, Any]) -> ClusterModel:
+    """Format cluster information as a ClusterModel.
+    
+    Args:
+        cluster: Raw cluster data from AWS
+        
+    Returns:
+        Formatted cluster information as a ClusterModel
+    """
+    members = []
+    for member in cluster.get('DBClusterMembers', []):
+        members.append(
+            ClusterMember(
+                instance_id=member.get('DBInstanceIdentifier'),
+                is_writer=member.get('IsClusterWriter'),
+                status=member.get('DBClusterParameterGroupStatus'),
+            )
+        )
+
+    vpc_security_groups = []
+    for sg in cluster.get('VpcSecurityGroups', []):
+        vpc_security_groups.append(
+            VpcSecurityGroup(id=sg.get('VpcSecurityGroupId'), status=sg.get('Status'))
+        )
+
+    tags = (
+        {tag['Key']: tag['Value'] for tag in cluster.get('TagList', [])}
+        if cluster.get('TagList')
+        else {}
+    )
+
+    return ClusterModel(
+        cluster_id=cluster.get('DBClusterIdentifier'),
+        status=cluster.get('Status'),
+        engine=cluster.get('Engine'),
+        engine_version=cluster.get('EngineVersion'),
+        endpoint=cluster.get('Endpoint'),
+        reader_endpoint=cluster.get('ReaderEndpoint'),
+        multi_az=cluster.get('MultiAZ', False),
+        backup_retention=cluster.get('BackupRetentionPeriod', 0),
+        preferred_backup_window=cluster.get('PreferredBackupWindow'),
+        preferred_maintenance_window=cluster.get('PreferredMaintenanceWindow'),
+        created_time=convert_datetime_to_string(cluster.get('ClusterCreateTime')),
+        members=members,
+        vpc_security_groups=vpc_security_groups,
+        tags=tags,
+    )
 
 
 async def get_cluster_detail_resource(cluster_id: str, rds_client: Any) -> str:
@@ -74,10 +145,132 @@ async def get_cluster_detail_resource(cluster_id: str, rds_client: Any) -> str:
         if not clusters:
             return json.dumps({'error': f'Cluster {cluster_id} not found'}, indent=2)
         
-        cluster = format_cluster_info(clusters[0])
-        cluster['resource_uri'] = f'{RESOURCE_PREFIX_CLUSTER}/{cluster_id}'
+        cluster = _format_cluster_model(clusters[0])
+        cluster.resource_uri = f'{RESOURCE_PREFIX_DB_CLUSTER}/{cluster_id}'
         
-        return json.dumps(cluster, indent=2)
+        return json.dumps(cluster.model_dump(), indent=2)
     except Exception as e:
         error_result = await handle_aws_error(f'get_cluster_detail_resource({cluster_id})', e)
+        return json.dumps(error_result, indent=2)
+
+
+def _format_instance_model(instance: Dict[str, Any]) -> InstanceModel:
+    """Format instance information as an InstanceModel.
+    
+    Args:
+        instance: Raw instance data from AWS
+        
+    Returns:
+        Formatted instance information as an InstanceModel
+    """
+    endpoint = InstanceEndpoint(
+        address=instance.get('Endpoint', {}).get('Address'),
+        port=instance.get('Endpoint', {}).get('Port'),
+        hosted_zone_id=instance.get('Endpoint', {}).get('HostedZoneId'),
+    )
+
+    storage = InstanceStorage(
+        type=instance.get('StorageType'),
+        allocated=instance.get('AllocatedStorage'),
+        encrypted=instance.get('StorageEncrypted'),
+    )
+
+    vpc_security_groups = []
+    for sg in instance.get('VpcSecurityGroups', []):
+        vpc_security_groups.append(
+            VpcSecurityGroup(id=sg.get('VpcSecurityGroupId'), status=sg.get('Status'))
+        )
+
+    tags = (
+        {tag['Key']: tag['Value'] for tag in instance.get('TagList', [])}
+        if instance.get('TagList')
+        else {}
+    )
+
+    return InstanceModel(
+        instance_id=instance.get('DBInstanceIdentifier'),
+        status=instance.get('DBInstanceStatus'),
+        engine=instance.get('Engine'),
+        engine_version=instance.get('EngineVersion'),
+        instance_class=instance.get('DBInstanceClass'),
+        endpoint=endpoint,
+        availability_zone=instance.get('AvailabilityZone'),
+        multi_az=instance.get('MultiAZ', False),
+        storage=storage,
+        preferred_backup_window=instance.get('PreferredBackupWindow'),
+        preferred_maintenance_window=instance.get('PreferredMaintenanceWindow'),
+        publicly_accessible=instance.get('PubliclyAccessible', False),
+        vpc_security_groups=vpc_security_groups,
+        db_cluster=instance.get('DBClusterIdentifier'),
+        tags=tags,
+        dbi_resource_id=instance.get('DbiResourceId'),
+    )
+
+
+async def get_instance_list_resource(rds_client: Any) -> str:
+    """Get list of all RDS instances as a resource.
+    
+    Args:
+        rds_client: AWS RDS client
+        
+    Returns:
+        JSON string with instance list
+    """
+    try:
+        logger.info("Getting instance list resource")
+
+        instances = []
+        response = await asyncio.to_thread(rds_client.describe_db_instances)
+
+        for instance in response.get('DBInstances', []):
+            instances.append(_format_instance_model(instance))
+
+        # pagination if there's a marker for next page
+        while 'Marker' in response:
+            response = await asyncio.to_thread(
+                rds_client.describe_db_instances, Marker=response['Marker']
+            )
+            for instance in response.get('DBInstances', []):
+                instances.append(_format_instance_model(instance))
+
+        # Create the model
+        result = InstanceListModel(
+            instances=instances, 
+            count=len(instances), 
+            resource_uri=RESOURCE_PREFIX_DB_INSTANCE
+        )
+
+        return json.dumps(result.model_dump(), indent=2)
+    except Exception as e:
+        error_result = await handle_aws_error('get_instance_list_resource', e)
+        return json.dumps(error_result, indent=2)
+
+
+async def get_instance_detail_resource(instance_id: str, rds_client: Any) -> str:
+    """Get detailed information about a specific instance as a resource.
+    
+    Args:
+        instance_id: The instance identifier
+        rds_client: AWS RDS client
+        
+    Returns:
+        JSON string with instance details
+    """
+    try:
+        logger.info(f"Getting instance detail resource for {instance_id}")
+        response = await asyncio.to_thread(
+            rds_client.describe_db_instances,
+            DBInstanceIdentifier=instance_id
+        )
+        
+        instances = response.get('DBInstances', [])
+        if not instances:
+            return json.dumps({'error': f'Instance {instance_id} not found'}, indent=2)
+        
+        instance = _format_instance_model(instances[0])
+        instance.resource_uri = f'{RESOURCE_PREFIX_DB_INSTANCE}/{instance_id}'
+        
+        return json.dumps(instance.model_dump(), indent=2)
+    except Exception as e:
+        error_result = await handle_aws_error(f'get_instance_detail_resource({instance_id})', e)
         return json.dumps(error_result, indent=2)
