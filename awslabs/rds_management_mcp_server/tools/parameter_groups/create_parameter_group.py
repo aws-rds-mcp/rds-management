@@ -37,16 +37,41 @@ from ...constants import (
 )
 
 
-CREATE_CLUSTER_PARAMETER_GROUP_TOOL_DESCRIPTION = """Create a new Amazon RDS DB cluster parameter group.
-
-This tool creates a new DB cluster parameter group that can be used to configure
-the settings for a family of RDS DB clusters.
+CREATE_CLUSTER_PARAMETER_GROUP_TOOL_DESCRIPTION = """Create a new custom DB cluster parameter group.
 
 <use_case>
-Use this tool when you need to customize database settings at the cluster level.
-Parameter groups contain configuration values that are applied to all instances
-in a DB cluster.
+Use this tool to create a custom parameter group for DB clusters, allowing you to customize
+database engine parameters according to your specific requirements. Custom parameter groups
+let you optimize database performance, security, and behavior.
 </use_case>
+
+<important_notes>
+1. Parameter group names must be 1-255 letters, numbers, or hyphens
+2. Parameter group names must start with a letter and cannot end with a hyphen
+3. You must specify a valid DB parameter group family (e.g., 'mysql8.0', 'aurora-postgresql13')
+4. The parameter group family determines which parameters are available
+5. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
+
+## Response structure
+Returns a dictionary with the following keys:
+- `message`: Success message confirming the creation
+- `formatted_parameter_group`: A simplified representation of the parameter group
+- `DBClusterParameterGroup`: The full AWS API response
+
+<examples>
+Example usage scenarios:
+1. Create a parameter group for a MySQL cluster:
+   - db_cluster_parameter_group_name="prod-mysql-params"
+   - db_parameter_group_family="mysql8.0"
+   - description="Production MySQL 8.0 parameters with optimized settings"
+
+2. Create a parameter group for an Aurora PostgreSQL cluster:
+   - db_cluster_parameter_group_name="data-warehouse-params"
+   - db_parameter_group_family="aurora-postgresql13"
+   - description="Data warehouse optimized parameters"
+   - tags=[{"Environment": "Production", "Team": "Data"}]
+</examples>
 """
 
 
@@ -137,16 +162,41 @@ async def create_db_cluster_parameter_group(
         raise e
 
 
-CREATE_INSTANCE_PARAMETER_GROUP_TOOL_DESCRIPTION = """Create a new Amazon RDS DB instance parameter group.
-
-This tool creates a new DB instance parameter group that can be used to configure
-the settings for a family of RDS DB instances.
+CREATE_INSTANCE_PARAMETER_GROUP_TOOL_DESCRIPTION = """Create a new custom DB instance parameter group.
 
 <use_case>
-Use this tool when you need to customize database settings at the instance level.
-Parameter groups contain configuration values that are applied to individual 
-DB instances.
+Use this tool to create a custom parameter group for DB instances, allowing you to customize
+database engine parameters according to your specific requirements. Custom parameter groups
+let you optimize database performance, security, and behavior at the instance level.
 </use_case>
+
+<important_notes>
+1. Parameter group names must be 1-255 letters, numbers, or hyphens
+2. Parameter group names must start with a letter and cannot end with a hyphen
+3. You must specify a valid DB parameter group family (e.g., 'mysql8.0', 'postgres13')
+4. The parameter group family determines which parameters are available
+5. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
+
+## Response structure
+Returns a dictionary with the following keys:
+- `message`: Success message confirming the creation
+- `formatted_parameter_group`: A simplified representation of the parameter group
+- `DBParameterGroup`: The full AWS API response
+
+<examples>
+Example usage scenarios:
+1. Create a parameter group for MySQL instances:
+   - db_parameter_group_name="prod-mysql-instance-params"
+   - db_parameter_group_family="mysql8.0"
+   - description="Production MySQL 8.0 instance parameters with optimized settings"
+
+2. Create a parameter group for PostgreSQL instances:
+   - db_parameter_group_name="reporting-postgres-params"
+   - db_parameter_group_family="postgres13"
+   - description="Reporting database optimized parameters"
+   - tags=[{"Environment": "Production", "Purpose": "Reporting"}]
+</examples>
 """
 
 

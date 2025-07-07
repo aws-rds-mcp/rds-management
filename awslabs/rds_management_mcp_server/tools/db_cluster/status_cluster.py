@@ -42,20 +42,59 @@ from ...constants import (
 )
 
 
-STATUS_CLUSTER_TOOL_DESCRIPTION = """Manage the status of an Amazon RDS database cluster.
+STATUS_CLUSTER_TOOL_DESCRIPTION = """Manage the status of an RDS database cluster.
 
-This tool allows you to change the status of an RDS database cluster:
+<use_case>
+Use this tool to change the operational status of an Amazon RDS database cluster.
+You can start a stopped cluster, stop a running cluster, or reboot a cluster to apply
+configuration changes or resolve certain issues.
+</use_case>
 
-- **Start**: Starts a stopped cluster, making it available for connections
-- **Stop**: Stops a running cluster, making it unavailable until started again
-- **Reboot**: Reboots a running cluster, causing a brief interruption in availability
+<important_notes>
+1. Each action requires explicit confirmation with a specific confirmation string
+2. Stopping a cluster will make it unavailable but will continue to incur storage charges
+3. Starting a cluster will resume full billing charges
+4. Rebooting causes a brief interruption but preserves cluster settings and data
+5. Aurora Serverless v1 clusters cannot be stopped manually
+6. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
 
-<warning>
-These operations affect the availability of your database:
-- Starting a stopped cluster will resume billing charges
-- Stopping a cluster makes it unavailable until it's started again
-- Rebooting a cluster causes a brief service interruption
-</warning>
+## Response structure
+If called without confirmation:
+- `requires_confirmation`: Always true
+- `warning`: Warning message about the action
+- `impact`: Description of the impact of the action
+- `message`: Instructions for confirming the action
+
+If called with valid confirmation:
+- `message`: Success message confirming the action
+- `formatted_cluster`: A simplified representation of the cluster in its new state
+- `DBCluster`: The full AWS API response containing cluster details including:
+  - `DBClusterIdentifier`: The cluster identifier
+  - `Status`: The current status (e.g., "starting", "stopping", "rebooting")
+  - Other cluster details
+
+<examples>
+Example usage scenarios:
+1. Stop a development cluster (first call to get warning):
+   - db_cluster_identifier="dev-db-cluster" 
+   - action="stop"
+
+2. Confirm stopping the cluster:
+   - db_cluster_identifier="dev-db-cluster"
+   - action="stop"
+   - confirmation="CONFIRM_STOP"
+
+3. Reboot a cluster that's experiencing issues:
+   - db_cluster_identifier="prod-db-cluster"
+   - action="reboot"
+   - confirmation="CONFIRM_REBOOT"
+
+4. Start a previously stopped cluster:
+   - db_cluster_identifier="dev-db-cluster"
+   - action="start"
+   - confirmation="CONFIRM_START"
+</examples>
 """
 
 

@@ -41,13 +41,49 @@ from ...constants import (
 
 CREATE_CLUSTER_TOOL_DESCRIPTION = """Create a new Amazon RDS database cluster.
 
-This tool creates a new RDS database cluster with the specified configuration. 
-The cluster will initially be created without any DB instances; you'll need to 
-create at least one instance within the cluster to make the database accessible.
+<use_case>
+Use this tool to provision a new Amazon RDS database cluster in your AWS account.
+This creates the cluster control plane but doesn't automatically provision database instances.
+You'll need to create DB instances separately after the cluster is available.
+</use_case>
 
-<warning>
-This operation creates AWS resources that will incur costs on your AWS account.
-</warning>
+<important_notes>
+1. Cluster identifiers must follow naming rules: 1-63 alphanumeric characters, must begin with a letter
+2. The tool will automatically determine default port numbers based on the engine if not specified
+3. Using manage_master_user_password=True (default) will store the password in AWS Secrets Manager
+4. Not all parameter combinations are valid for all database engines
+5. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
+
+## Response structure
+Returns a dictionary with the following keys:
+- `message`: Success message confirming the creation
+- `formatted_cluster`: A simplified representation of the cluster in standard format
+- `DBCluster`: The full AWS API response containing all cluster details including:
+  - `DBClusterIdentifier`: The cluster identifier
+  - `Status`: The current status (usually "creating" initially)
+  - `Engine`: The database engine
+  - `EngineVersion`: The engine version
+  - `Endpoint`: The connection endpoint
+  - `MasterUsername`: The admin username
+  - `AvailabilityZones`: List of AZs where the cluster operates
+  - Other cluster configuration details and settings
+
+<examples>
+Example usage scenarios:
+1. Create a basic Aurora PostgreSQL cluster:
+   - db_cluster_identifier="my-postgres-cluster"
+   - engine="aurora-postgresql"
+   - master_username="admin"
+
+2. Create a MySQL-compatible Aurora cluster with custom settings:
+   - db_cluster_identifier="production-aurora"
+   - engine="aurora-mysql"
+   - master_username="dbadmin"
+   - database_name="appdb"
+   - backup_retention_period=7
+   - vpc_security_group_ids=["sg-12345678"]
+</examples>
 """
 
 

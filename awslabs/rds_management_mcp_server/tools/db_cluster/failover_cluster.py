@@ -36,14 +36,56 @@ from ...constants import (
 )
 
 
-FAILOVER_CLUSTER_TOOL_DESCRIPTION = """Force a failover for an Amazon RDS database cluster.
+FAILOVER_CLUSTER_TOOL_DESCRIPTION = """Force a failover for an RDS database cluster.
 
-This tool forces a failover for an Amazon RDS Multi-AZ DB cluster. During the failover, 
-the DB cluster will fail over to one of the existing read replicas (promoted to be the primary instance).
+<use_case>
+Use this tool to force a failover of an Amazon RDS Multi-AZ DB cluster, promoting a read replica
+to become the primary instance. This can be used for disaster recovery testing, to move the primary
+to a different availability zone, or to recover from issues with the current primary instance.
+</use_case>
 
-<warning>
-Forcing a failover will cause a brief disruption during which the DB cluster will be unavailable.
-</warning>
+<important_notes>
+1. This operation requires explicit confirmation with the text "CONFIRM_FAILOVER"
+2. Failover causes a momentary interruption in database availability
+3. Any in-flight transactions that haven't been committed may be lost during failover
+4. The cluster must be in the "available" state for the failover to succeed
+5. If target_db_instance_identifier is not specified, RDS chooses a replica automatically
+6. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
+
+## Response structure
+If called without confirmation:
+- `requires_confirmation`: Always true
+- `warning`: Warning message about the failover
+- `impact`: Description of the impact of the failover
+- `message`: Instructions for confirming the failover
+
+If called with valid confirmation:
+- `message`: Success message confirming the initiated failover
+- `formatted_cluster`: A simplified representation of the cluster during failover
+- `DBCluster`: The full AWS API response containing cluster details including:
+  - `DBClusterIdentifier`: The cluster identifier
+  - `Status`: The current status (usually "failing-over")
+  - Other cluster details
+
+<examples>
+Example usage scenarios:
+1. Start failover process (get warning):
+   - db_cluster_identifier="production-cluster"
+
+2. Confirm failover without specifying a target:
+   - db_cluster_identifier="production-cluster"
+   - confirmation="CONFIRM_FAILOVER"
+
+3. Failover to a specific replica instance:
+   - db_cluster_identifier="production-cluster"
+   - target_db_instance_identifier="production-instance-east-1c"
+   - confirmation="CONFIRM_FAILOVER"
+
+4. Regular disaster recovery drill:
+   - db_cluster_identifier="production-cluster"
+   - confirmation="CONFIRM_FAILOVER"
+</examples>
 """
 
 

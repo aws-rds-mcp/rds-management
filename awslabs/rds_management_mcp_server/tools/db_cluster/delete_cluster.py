@@ -35,16 +35,56 @@ from ...common.utils import (
 )
 
 
-DELETE_CLUSTER_TOOL_DESCRIPTION = """Delete an Amazon RDS database cluster.
+DELETE_CLUSTER_TOOL_DESCRIPTION = """Delete an RDS database cluster.
 
-This tool deletes an RDS database cluster. By default, a final snapshot will be created 
-unless explicitly disabled. All instances in the cluster will be terminated. 
-This operation cannot be undone.
+<use_case>
+Use this tool to permanently remove an Amazon RDS database cluster and optionally
+create a final snapshot. This operation cannot be undone, so a confirmation token is
+required to prevent accidental deletion.
+</use_case>
 
-<warning>
-This is a destructive operation that permanently deletes the database cluster and all its data.
-Without a final snapshot, all data will be permanently lost.
-</warning>
+<important_notes>
+1. This is a destructive operation that permanently deletes data
+2. A confirmation token is required for safety - first call without token to receive one
+3. By default, a final snapshot is created (skip_final_snapshot=False)
+4. When creating a final snapshot (default behavior), you must provide final_db_snapshot_identifier
+5. The operation may take several minutes to complete
+6. All associated instances, automated backups and continuous backups (PITR) will be deleted
+7. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
+
+## Response structure
+If called without a confirmation token:
+- `requires_confirmation`: Always true
+- `warning`: Warning message about the deletion
+- `impact`: Description of the impact of deletion
+- `confirmation_token`: Token to use in a subsequent call
+- `message`: Instructions for confirming the deletion
+
+If called with a valid confirmation token:
+- `message`: Success message confirming deletion
+- `formatted_cluster`: A simplified representation of the deleted cluster
+- `DBCluster`: The full AWS API response containing cluster details including:
+  - `DBClusterIdentifier`: The cluster identifier
+  - `Status`: The current status (usually "deleting")
+  - Other cluster details
+
+<examples>
+Example usage scenarios:
+1. Start deletion process (get confirmation token):
+   - db_cluster_identifier="test-db-cluster"
+   - skip_final_snapshot=true
+
+2. Confirm deletion (with confirmation token):
+   - db_cluster_identifier="test-db-cluster"
+   - skip_final_snapshot=true
+   - confirmation_token="abc123xyz" (token received from step 1)
+
+3. Delete with final snapshot:
+   - db_cluster_identifier="prod-db-cluster"
+   - skip_final_snapshot=false
+   - final_db_snapshot_identifier="prod-final-snapshot-20230625"
+</examples>
 """
 
 

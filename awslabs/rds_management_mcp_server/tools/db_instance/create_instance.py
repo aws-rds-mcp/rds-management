@@ -41,12 +41,45 @@ from ...constants import (
 
 CREATE_INSTANCE_TOOL_DESCRIPTION = """Create a new Amazon RDS database instance.
 
-This tool creates a new RDS database instance with the specified configuration.
-You can create a standalone instance or add an instance to an existing DB cluster.
+<use_case>
+Use this tool to provision a new Amazon RDS database instance within an existing DB cluster.
+For Aurora databases, cluster instances provide the compute and memory capacity for the cluster.
+</use_case>
 
-<warning>
-This operation creates AWS resources that will incur costs on your AWS account.
-</warning>
+<important_notes>
+1. Instance identifiers must follow naming rules: 1-63 alphanumeric characters, must begin with a letter
+2. The DB cluster must exist before creating an instance within it
+3. The instance class determines the compute and memory capacity (e.g., db.r5.large)
+4. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
+
+## Response structure
+Returns a dictionary with the following keys:
+- `message`: Success message confirming the creation
+- `formatted_instance`: A simplified representation of the instance in standard format
+- `DBInstance`: The full AWS API response containing all instance details including:
+  - `DBInstanceIdentifier`: The instance identifier
+  - `DBInstanceClass`: The compute capacity class
+  - `Engine`: The database engine
+  - `DBClusterIdentifier`: The parent cluster identifier
+  - `AvailabilityZone`: The AZ where the instance is located
+  - `Endpoint`: The connection endpoint
+  - Other instance configuration details
+
+<examples>
+Example usage scenarios:
+1. Create a standard Aurora cluster instance:
+   - db_instance_identifier="aurora-instance-1"
+   - db_cluster_identifier="aurora-cluster"
+   - db_instance_class="db.r5.large"
+
+2. Create a DB instance in a specific availability zone:
+   - db_instance_identifier="aurora-instance-2"
+   - db_cluster_identifier="aurora-cluster"
+   - db_instance_class="db.r5.large"
+   - availability_zone="us-east-1a"
+   - publicly_accessible=false
+</examples>
 """
 
 

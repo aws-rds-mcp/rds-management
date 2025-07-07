@@ -35,18 +35,50 @@ from ...constants import (
 )
 
 
-MODIFY_CLUSTER_TOOL_DESCRIPTION = """Modify an existing Amazon RDS database cluster.
+MODIFY_CLUSTER_TOOL_DESCRIPTION = """Modify an existing RDS database cluster configuration.
 
-This tool modifies the configuration of an existing RDS database cluster. Various
-attributes of the cluster can be changed, such as backup retention, parameter groups,
-VPC security groups, and more.
+<use_case>
+Use this tool to update the configuration of an existing Amazon RDS database cluster.
+This allows changing various settings like backup retention, parameter groups, security groups, 
+and upgrading database engine versions without recreating the cluster.
+</use_case>
 
-You can specify whether the changes should be applied immediately or during the next
-maintenance window.
+<important_notes>
+1. Setting apply_immediately=True applies changes immediately but may cause downtime
+2. Setting apply_immediately=False (default) applies changes during the next maintenance window
+3. Major version upgrades require allow_major_version_upgrade=True
+4. Changing the port may require updates to security groups and application configurations
+5. When run with readonly=True (default), this operation will be simulated but not actually performed
+</important_notes>
 
-<warning>
-Some modifications might cause downtime, especially if applied immediately.
-</warning>
+## Response structure
+Returns a dictionary with the following keys:
+- `message`: Success message confirming the modification
+- `formatted_cluster`: A simplified representation of the modified cluster in standard format
+- `DBCluster`: The full AWS API response containing all cluster details including:
+  - `DBClusterIdentifier`: The cluster identifier
+  - `Status`: The current status (may show "modifying")
+  - `PendingModifiedValues`: Values that will be applied if not immediate
+  - Other updated cluster configuration details
+
+<examples>
+Example usage scenarios:
+1. Increase backup retention period:
+   - db_cluster_identifier="production-db-cluster" 
+   - backup_retention_period=14
+   - apply_immediately=True
+
+2. Change security groups and apply during maintenance window:
+   - db_cluster_identifier="production-db-cluster"
+   - vpc_security_group_ids=["sg-87654321", "sg-12348765"]
+   - apply_immediately=False
+
+3. Upgrade database engine version:
+   - db_cluster_identifier="production-db-cluster"
+   - engine_version="5.7.mysql_aurora.2.10.2"
+   - allow_major_version_upgrade=True
+   - apply_immediately=False
+</examples>
 """
 
 
