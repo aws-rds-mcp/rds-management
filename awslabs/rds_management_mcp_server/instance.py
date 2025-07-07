@@ -62,8 +62,8 @@ async def create_db_instance(
         Optional[str], Field(description='The Availability Zone (AZ) where the DB instance will be created')
     ] = None,
     engine: Annotated[
-        Optional[str], Field(description='The name of the database engine to be used for this instance')
-    ] = None,
+        str, Field(description='The name of the database engine to be used for this instance')
+    ],
     publicly_accessible: Annotated[
         Optional[bool], Field(description='Specifies whether the DB instance is publicly accessible')
     ] = None,
@@ -111,8 +111,8 @@ async def create_db_instance(
         # Add optional parameters if provided
         if availability_zone:
             params['AvailabilityZone'] = availability_zone
-        if engine:
-            params['Engine'] = engine
+        # Engine is required by the AWS API
+        params['Engine'] = engine
         if publicly_accessible is not None:
             params['PubliclyAccessible'] = publicly_accessible
         if tags:

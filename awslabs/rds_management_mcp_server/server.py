@@ -1059,8 +1059,8 @@ async def create_db_instance_tool(
     db_instance_identifier: str = Field(description='The identifier for the DB instance'),
     db_cluster_identifier: str = Field(description='The identifier of the DB cluster that the instance will belong to'),
     db_instance_class: str = Field(description='The compute and memory capacity of the DB instance (e.g., db.r5.large)'),
+    engine: str = Field(description='The name of the database engine to be used for this instance'),
     availability_zone: Optional[str] = Field(default=None, description='The Availability Zone where the DB instance will be created'),
-    engine: Optional[str] = Field(default=None, description='The name of the database engine to be used for this instance'),
     publicly_accessible: Optional[bool] = Field(default=None, description='Specifies whether the DB instance is publicly accessible'),
     tags: Optional[List[Dict[str, str]]] = Field(default=None, description='A list of tags to assign to the DB instance'),
 ) -> Dict[str, Any]:
