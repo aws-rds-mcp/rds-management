@@ -1,0 +1,116 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tool to delete a snapshot of an Amazon RDS DB cluster."""
+
+import asyncio
+import secrets
+from typing import Any, Dict, Optional
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing_extensions import Annotated
+
+from ...common.connection import RDSConnectionManager
+from ...common.decorator import handle_exceptions
+from ...common.server import mcp
+from ...common.utils import (
+    check_readonly_mode,
+    format_aws_response,
+)
+from ...constants import (
+    ERROR_READONLY_MODE,
+    SUCCESS_DELETED,
+)
+
+
+DELETE_SNAPSHOT_TOOL_DESCRIPTION = """Delete a snapshot of an Amazon RDS database cluster.
+
+This tool deletes a manual snapshot of an RDS database cluster. This operation cannot be undone.
+
+<warning>
+This is a destructive operation that permanently deletes the snapshot.
+Once a snapshot is deleted, it cannot be recovered.
+</warning>
+"""
+
+
+@mcp.tool(
+    name='DeleteDBClusterSnapshot',
+    description=DELETE_SNAPSHOT_TOOL_DESCRIPTION,
+)
+@handle_exceptions
+async def delete_db_cluster_snapshot(
+    db_cluster_snapshot_identifier: Annotated[
+        str, Field(description='The identifier for the DB cluster snapshot to delete')
+    ],
+    confirmation_token: Annotated[
+        Optional[str], Field(description='Confirmation token for this destructive operation')
+    ] = None,
+    ctx: Context = None,
+) -> Dict[str, Any]:
+    """Delete a snapshot of an RDS database cluster.
+
+    Args:
+        db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot to delete
+        confirmation_token: Optional confirmation token for destructive operation
+        ctx: MCP context for logging and state management
+
+    Returns:
+        Dict[str, Any]: The response from the AWS API
+    """
+    # Get RDS client
+    rds_client = RDSConnectionManager.get_connection()
+    
+    # Check if server is in readonly mode
+    if not check_readonly_mode('delete', Context.readonly_mode(), ctx):
+        return {'error': ERROR_READONLY_MODE}
+
+    # If no confirmation token provided, request confirmation
+    if not confirmation_token:
+        # Generate a random token for confirmation
+        token = secrets.token_hex(8)
+        
+        return {
+            'requires_confirmation': True,
+            'warning': f'You are about to delete snapshot {db_cluster_snapshot_identifier}. This operation cannot be undone.',
+            'impact': 'Deleting this snapshot will permanently remove it and prevent any future restore operations using this snapshot.',
+            'confirmation_token': token,
+            'message': f'To confirm deletion, please provide this token as confirmation_token: {token}',
+        }
+    
+    try:
+        logger.info(f"Deleting DB cluster snapshot {db_cluster_snapshot_identifier}")
+        response = await asyncio.to_thread(
+            rds_client.delete_db_cluster_snapshot,
+            DBClusterSnapshotIdentifier=db_cluster_snapshot_identifier
+        )
+        logger.success(f"Successfully deleted DB cluster snapshot {db_cluster_snapshot_identifier}")
+        
+        # Format the response
+        result = format_aws_response(response)
+        formatted_snapshot = {
+            'snapshot_id': response.get('DBClusterSnapshot', {}).get('DBClusterSnapshotIdentifier'),
+            'cluster_id': response.get('DBClusterSnapshot', {}).get('DBClusterIdentifier'),
+            'status': response.get('DBClusterSnapshot', {}).get('Status'),
+            'deletion_time': response.get('DBClusterSnapshot', {}).get('SnapshotCreateTime'),
+        }
+        
+        result['message'] = SUCCESS_DELETED.format(f'DB cluster snapshot {db_cluster_snapshot_identifier}')
+        result['formatted_snapshot'] = formatted_snapshot
+        
+        return result
+    except Exception as e:
+        # The decorator will handle the exception
+        raise e
