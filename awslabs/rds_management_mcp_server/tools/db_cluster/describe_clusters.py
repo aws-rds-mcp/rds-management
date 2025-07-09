@@ -15,19 +15,18 @@
 """Tool to describe Amazon RDS database clusters."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
-    format_aws_response,
     format_cluster_info,
+    format_rds_api_response,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List, Optional
+from typing_extensions import Annotated
 
 
 DESCRIBE_CLUSTERS_TOOL_DESCRIPTION = """Retrieve information about one or multiple Amazon RDS database clusters.
@@ -50,16 +49,24 @@ when MCP resources are not available or when you need more control over the filt
 @handle_exceptions
 async def describe_db_clusters(
     db_cluster_identifier: Annotated[
-        Optional[str], Field(description='The user-supplied DB cluster identifier. If this parameter is specified, information from only the specific DB cluster is returned')
+        Optional[str],
+        Field(
+            description='The user-supplied DB cluster identifier. If this parameter is specified, information from only the specific DB cluster is returned'
+        ),
     ] = None,
     filters: Annotated[
-        Optional[List[Dict[str, Any]]], Field(description='A filter that specifies one or more DB clusters to describe')
+        Optional[List[Dict[str, Any]]],
+        Field(description='A filter that specifies one or more DB clusters to describe'),
     ] = None,
     marker: Annotated[
-        Optional[str], Field(description='An optional pagination token provided by a previous DescribeDBClusters request')
+        Optional[str],
+        Field(
+            description='An optional pagination token provided by a previous DescribeDBClusters request'
+        ),
     ] = None,
     max_records: Annotated[
-        Optional[int], Field(description='The maximum number of records to include in the response')
+        Optional[int],
+        Field(description='The maximum number of records to include in the response'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -80,7 +87,7 @@ async def describe_db_clusters(
 
     try:
         params = {}
-        
+
         if db_cluster_identifier:
             params['DBClusterIdentifier'] = db_cluster_identifier
         if filters:
@@ -90,23 +97,27 @@ async def describe_db_clusters(
         if max_records:
             params['MaxRecords'] = max_records
 
-        logger.info("Describing DB clusters")
+        logger.info('Describing DB clusters')
         response = await asyncio.to_thread(rds_client.describe_db_clusters, **params)
-        
-        result = format_aws_response(response)
-        
+
+        result = format_rds_api_response(response)
+
         # format cluster information for better readability
         if 'DBClusters' in result:
             result['formatted_clusters'] = [
                 format_cluster_info(cluster) for cluster in result['DBClusters']
             ]
-        
+
         if db_cluster_identifier:
-            result['message'] = f"Successfully retrieved information for DB cluster {db_cluster_identifier}"
+            result['message'] = (
+                f'Successfully retrieved information for DB cluster {db_cluster_identifier}'
+            )
         else:
             cluster_count = len(result.get('DBClusters', []))
-            result['message'] = f"Successfully retrieved information for {cluster_count} DB clusters"
-        
+            result['message'] = (
+                f'Successfully retrieved information for {cluster_count} DB clusters'
+            )
+
         return result
     except Exception as e:
         # The decorator will handle the exception

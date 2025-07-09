@@ -15,24 +15,23 @@
 """Tool to modify an existing Amazon RDS database instance."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     check_readonly_mode,
-    format_aws_response,
     format_instance_info,
+    format_rds_api_response,
 )
 from ...constants import (
     ERROR_READONLY_MODE,
     SUCCESS_MODIFIED,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List, Optional
+from typing_extensions import Annotated
 
 
 MODIFY_INSTANCE_TOOL_DESCRIPTION = """Modify an existing Amazon RDS database instance.
@@ -61,40 +60,56 @@ async def modify_db_instance(
         str, Field(description='The identifier for the DB instance')
     ],
     apply_immediately: Annotated[
-        Optional[bool], Field(description='Specifies whether the modifications are applied immediately, or during the next maintenance window')
+        Optional[bool],
+        Field(
+            description='Specifies whether the modifications are applied immediately, or during the next maintenance window'
+        ),
     ] = None,
     allocated_storage: Annotated[
-        Optional[int], Field(description='The new amount of storage (in GiB) to allocate for the DB instance')
+        Optional[int],
+        Field(description='The new amount of storage (in GiB) to allocate for the DB instance'),
     ] = None,
     db_instance_class: Annotated[
-        Optional[str], Field(description='The new compute and memory capacity of the DB instance, for example, db.m5.large')
+        Optional[str],
+        Field(
+            description='The new compute and memory capacity of the DB instance, for example, db.m5.large'
+        ),
     ] = None,
     storage_type: Annotated[
-        Optional[str], Field(description='The new storage type to be associated with the DB instance')
+        Optional[str],
+        Field(description='The new storage type to be associated with the DB instance'),
     ] = None,
     master_user_password: Annotated[
         Optional[str], Field(description='The new password for the master user')
     ] = None,
     manage_master_user_password: Annotated[
-        Optional[bool], Field(description='Specifies whether to manage the master user password with AWS Secrets Manager')
+        Optional[bool],
+        Field(
+            description='Specifies whether to manage the master user password with AWS Secrets Manager'
+        ),
     ] = None,
     vpc_security_group_ids: Annotated[
-        Optional[List[str]], Field(description='A list of EC2 VPC security groups to associate with this DB instance')
+        Optional[List[str]],
+        Field(description='A list of EC2 VPC security groups to associate with this DB instance'),
     ] = None,
     db_parameter_group_name: Annotated[
-        Optional[str], Field(description='The name of the DB parameter group to apply to the DB instance')
+        Optional[str],
+        Field(description='The name of the DB parameter group to apply to the DB instance'),
     ] = None,
     backup_retention_period: Annotated[
         Optional[int], Field(description='The number of days to retain automated backups')
     ] = None,
     preferred_backup_window: Annotated[
-        Optional[str], Field(description='The daily time range during which automated backups are created')
+        Optional[str],
+        Field(description='The daily time range during which automated backups are created'),
     ] = None,
     preferred_maintenance_window: Annotated[
-        Optional[str], Field(description='The weekly time range during which system maintenance can occur')
+        Optional[str],
+        Field(description='The weekly time range during which system maintenance can occur'),
     ] = None,
     multi_az: Annotated[
-        Optional[bool], Field(description='Specifies whether the DB instance is a Multi-AZ deployment')
+        Optional[bool],
+        Field(description='Specifies whether the DB instance is a Multi-AZ deployment'),
     ] = None,
     engine_version: Annotated[
         Optional[str], Field(description='The version number of the database engine to upgrade to')
@@ -103,10 +118,12 @@ async def modify_db_instance(
         Optional[bool], Field(description='Indicates whether major version upgrades are allowed')
     ] = None,
     auto_minor_version_upgrade: Annotated[
-        Optional[bool], Field(description='Indicates that minor version upgrades are applied automatically')
+        Optional[bool],
+        Field(description='Indicates that minor version upgrades are applied automatically'),
     ] = None,
     publicly_accessible: Annotated[
-        Optional[bool], Field(description='Specifies whether the DB instance is publicly accessible')
+        Optional[bool],
+        Field(description='Specifies whether the DB instance is publicly accessible'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -137,7 +154,7 @@ async def modify_db_instance(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
@@ -181,14 +198,14 @@ async def modify_db_instance(
         if publicly_accessible is not None:
             params['PubliclyAccessible'] = publicly_accessible
 
-        logger.info(f"Modifying DB instance {db_instance_identifier}")
+        logger.info(f'Modifying DB instance {db_instance_identifier}')
         response = await asyncio.to_thread(rds_client.modify_db_instance, **params)
-        logger.success(f"Successfully modified DB instance {db_instance_identifier}")
-        
-        result = format_aws_response(response)
+        logger.success(f'Successfully modified DB instance {db_instance_identifier}')
+
+        result = format_rds_api_response(response)
         result['message'] = SUCCESS_MODIFIED.format(f'DB instance {db_instance_identifier}')
         result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

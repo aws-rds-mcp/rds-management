@@ -15,19 +15,13 @@
 """Tool to create Amazon RDS parameter groups."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
-    format_aws_response,
     add_mcp_tags,
+    check_readonly_mode,
+    format_rds_api_response,
     validate_db_identifier,
 )
 from ...constants import (
@@ -35,6 +29,11 @@ from ...constants import (
     ERROR_READONLY_MODE,
     SUCCESS_CREATED,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List, Optional
+from typing_extensions import Annotated
 
 
 CREATE_CLUSTER_PARAMETER_GROUP_TOOL_DESCRIPTION = """Create a new custom DB cluster parameter group.
@@ -91,7 +90,8 @@ async def create_db_cluster_parameter_group(
         str, Field(description='The description for the DB cluster parameter group')
     ],
     tags: Annotated[
-        Optional[List[Dict[str, str]]], Field(description='A list of tags to apply to the parameter group')
+        Optional[List[Dict[str, str]]],
+        Field(description='A list of tags to apply to the parameter group'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -109,14 +109,16 @@ async def create_db_cluster_parameter_group(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('create', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
 
     # Validate identifier
     if not validate_db_identifier(db_cluster_parameter_group_name):
-        error_msg = ERROR_INVALID_PARAMS.format('Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores')
+        error_msg = ERROR_INVALID_PARAMS.format(
+            'Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores'
+        )
         logger.error(error_msg)
         return {'error': error_msg}
 
@@ -134,28 +136,32 @@ async def create_db_cluster_parameter_group(
                 for key, value in tag_item.items():
                     aws_tags.append({'Key': key, 'Value': value})
             params['Tags'] = aws_tags
-        
+
         # Add MCP tags
         params = add_mcp_tags(params)
 
-        logger.info(f"Creating DB cluster parameter group {db_cluster_parameter_group_name}")
+        logger.info(f'Creating DB cluster parameter group {db_cluster_parameter_group_name}')
         response = await asyncio.to_thread(rds_client.create_db_cluster_parameter_group, **params)
-        logger.success(f"Successfully created DB cluster parameter group {db_cluster_parameter_group_name}")
-        
-        result = format_aws_response(response)
-        
+        logger.success(
+            f'Successfully created DB cluster parameter group {db_cluster_parameter_group_name}'
+        )
+
+        result = format_rds_api_response(response)
+
         # Format response for better readability
         formatted_parameter_group = {
-            "name": response.get("DBClusterParameterGroup", {}).get("DBClusterParameterGroupName"),
-            "description": response.get("DBClusterParameterGroup", {}).get("Description"),
-            "family": response.get("DBClusterParameterGroup", {}).get("DBParameterGroupFamily"),
-            "type": "cluster",
-            "arn": response.get("DBClusterParameterGroup", {}).get("DBClusterParameterGroupArn"),
+            'name': response.get('DBClusterParameterGroup', {}).get('DBClusterParameterGroupName'),
+            'description': response.get('DBClusterParameterGroup', {}).get('Description'),
+            'family': response.get('DBClusterParameterGroup', {}).get('DBParameterGroupFamily'),
+            'type': 'cluster',
+            'arn': response.get('DBClusterParameterGroup', {}).get('DBClusterParameterGroupArn'),
         }
-        
-        result['message'] = SUCCESS_CREATED.format(f'DB cluster parameter group {db_cluster_parameter_group_name}')
+
+        result['message'] = SUCCESS_CREATED.format(
+            f'DB cluster parameter group {db_cluster_parameter_group_name}'
+        )
         result['formatted_parameter_group'] = formatted_parameter_group
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception
@@ -216,7 +222,8 @@ async def create_db_instance_parameter_group(
         str, Field(description='The description for the DB instance parameter group')
     ],
     tags: Annotated[
-        Optional[List[Dict[str, str]]], Field(description='A list of tags to apply to the parameter group')
+        Optional[List[Dict[str, str]]],
+        Field(description='A list of tags to apply to the parameter group'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -234,14 +241,16 @@ async def create_db_instance_parameter_group(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('create', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
 
     # Validate identifier
     if not validate_db_identifier(db_parameter_group_name):
-        error_msg = ERROR_INVALID_PARAMS.format('Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores')
+        error_msg = ERROR_INVALID_PARAMS.format(
+            'Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores'
+        )
         logger.error(error_msg)
         return {'error': error_msg}
 
@@ -259,28 +268,32 @@ async def create_db_instance_parameter_group(
                 for key, value in tag_item.items():
                     aws_tags.append({'Key': key, 'Value': value})
             params['Tags'] = aws_tags
-        
+
         # Add MCP tags
         params = add_mcp_tags(params)
 
-        logger.info(f"Creating DB instance parameter group {db_parameter_group_name}")
+        logger.info(f'Creating DB instance parameter group {db_parameter_group_name}')
         response = await asyncio.to_thread(rds_client.create_db_parameter_group, **params)
-        logger.success(f"Successfully created DB instance parameter group {db_parameter_group_name}")
-        
-        result = format_aws_response(response)
-        
+        logger.success(
+            f'Successfully created DB instance parameter group {db_parameter_group_name}'
+        )
+
+        result = format_rds_api_response(response)
+
         # Format response for better readability
         formatted_parameter_group = {
-            "name": response.get("DBParameterGroup", {}).get("DBParameterGroupName"),
-            "description": response.get("DBParameterGroup", {}).get("Description"),
-            "family": response.get("DBParameterGroup", {}).get("DBParameterGroupFamily"),
-            "type": "instance",
-            "arn": response.get("DBParameterGroup", {}).get("DBParameterGroupArn"),
+            'name': response.get('DBParameterGroup', {}).get('DBParameterGroupName'),
+            'description': response.get('DBParameterGroup', {}).get('Description'),
+            'family': response.get('DBParameterGroup', {}).get('DBParameterGroupFamily'),
+            'type': 'instance',
+            'arn': response.get('DBParameterGroup', {}).get('DBParameterGroupArn'),
         }
-        
-        result['message'] = SUCCESS_CREATED.format(f'DB instance parameter group {db_parameter_group_name}')
+
+        result['message'] = SUCCESS_CREATED.format(
+            f'DB instance parameter group {db_parameter_group_name}'
+        )
         result['formatted_parameter_group'] = formatted_parameter_group
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

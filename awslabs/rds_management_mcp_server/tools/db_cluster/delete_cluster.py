@@ -15,24 +15,23 @@
 """Tool to delete an Amazon RDS database cluster."""
 
 import asyncio
-from typing import Any, Dict, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
-    format_aws_response,
-    format_cluster_info,
-    get_operation_impact,
     add_pending_operation,
+    check_readonly_mode,
+    format_cluster_info,
+    format_rds_api_response,
+    get_operation_impact,
     get_pending_operation,
     remove_pending_operation,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, Optional
+from typing_extensions import Annotated
 
 
 DELETE_CLUSTER_TOOL_DESCRIPTION = """Delete an RDS database cluster.
@@ -94,14 +93,18 @@ Example usage scenarios:
 )
 @handle_exceptions
 async def delete_db_cluster(
-    db_cluster_identifier: Annotated[
-        str, Field(description='The identifier for the DB cluster')
-    ],
+    db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     skip_final_snapshot: Annotated[
-        bool, Field(description='Determines whether a final DB snapshot is created before the DB cluster is deleted')
+        bool,
+        Field(
+            description='Determines whether a final DB snapshot is created before the DB cluster is deleted'
+        ),
     ] = False,
     final_db_snapshot_identifier: Annotated[
-        Optional[str], Field(description='The DB snapshot identifier of the new DB snapshot created when SkipFinalSnapshot is false')
+        Optional[str],
+        Field(
+            description='The DB snapshot identifier of the new DB snapshot created when SkipFinalSnapshot is false'
+        ),
     ] = None,
     confirmation_token: Annotated[
         Optional[str], Field(description='The confirmation token for the operation')
@@ -122,10 +125,12 @@ async def delete_db_cluster(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('delete', Context.readonly_mode(), ctx):
-        return {'error': 'This operation requires write access. The server is currently in read-only mode.'}
+        return {
+            'error': 'This operation requires write access. The server is currently in read-only mode.'
+        }
 
     # confirmation message and impact
     impact = get_operation_impact('delete_db_cluster')
@@ -140,7 +145,7 @@ This action will:
 
 This operation cannot be undone.
 """
-    
+
     # if no confirmation token provided, create a pending operation and return a token
     if not confirmation_token:
         # create parameters for the operation
@@ -148,48 +153,46 @@ This operation cannot be undone.
             'db_cluster_identifier': db_cluster_identifier,
             'skip_final_snapshot': skip_final_snapshot,
         }
-        
+
         if not skip_final_snapshot and final_db_snapshot_identifier:
             params['final_db_snapshot_identifier'] = final_db_snapshot_identifier
-            
+
         # add the pending operation and get a token
         token = add_pending_operation('delete_db_cluster', params)
-        
+
         # return the token directly in the response
         return {
             'requires_confirmation': True,
             'warning': confirmation_msg,
             'impact': impact,
             'confirmation_token': token,
-            'message': f'WARNING: You are about to delete DB cluster {db_cluster_identifier}. This operation cannot be undone.\n\nTo confirm, please call this function again with the confirmation_token parameter set to this token.'
+            'message': f'WARNING: You are about to delete DB cluster {db_cluster_identifier}. This operation cannot be undone.\n\nTo confirm, please call this function again with the confirmation_token parameter set to this token.',
         }
-    
+
     # if confirmation token provided, check if it's valid
     pending_op = get_pending_operation(confirmation_token)
     if not pending_op:
         return {
-            'error': f'Invalid or expired confirmation token. Please request a new token by calling this function without a confirmation_token parameter.'
+            'error': 'Invalid or expired confirmation token. Please request a new token by calling this function without a confirmation_token parameter.'
         }
-    
+
     # extract operation details
     op_type, params, _ = pending_op
-    
+
     # verify that this is the correct operation type
     if op_type != 'delete_db_cluster':
-        return {
-            'error': f'Invalid operation type. Expected "delete_db_cluster", got "{op_type}".'
-        }
-    
+        return {'error': f'Invalid operation type. Expected "delete_db_cluster", got "{op_type}".'}
+
     # verify that the parameters match
     if params.get('db_cluster_identifier') != db_cluster_identifier:
         return {
-            'error': f'Parameter mismatch. The confirmation token is for a different DB cluster.'
+            'error': 'Parameter mismatch. The confirmation token is for a different DB cluster.'
         }
-    
+
     try:
         # remove the pending operation
         remove_pending_operation(confirmation_token)
-        
+
         # AWS API parameters
         aws_params = {
             'DBClusterIdentifier': db_cluster_identifier,
@@ -199,14 +202,14 @@ This operation cannot be undone.
         if not skip_final_snapshot and final_db_snapshot_identifier:
             aws_params['FinalDBSnapshotIdentifier'] = final_db_snapshot_identifier
 
-        logger.info(f"Deleting DB cluster {db_cluster_identifier}")
+        logger.info(f'Deleting DB cluster {db_cluster_identifier}')
         response = await asyncio.to_thread(rds_client.delete_db_cluster, **aws_params)
-        logger.success(f"Successfully initiated deletion of DB cluster {db_cluster_identifier}")
-        
-        result = format_aws_response(response)
+        logger.success(f'Successfully initiated deletion of DB cluster {db_cluster_identifier}')
+
+        result = format_rds_api_response(response)
         result['message'] = f'Successfully deleted DB cluster {db_cluster_identifier}'
         result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

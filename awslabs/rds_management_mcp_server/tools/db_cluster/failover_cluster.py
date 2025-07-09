@@ -15,25 +15,24 @@
 """Tool to force a failover for an Amazon RDS database cluster."""
 
 import asyncio
-from typing import Any, Dict, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     check_readonly_mode,
-    format_aws_response,
     format_cluster_info,
+    format_rds_api_response,
     get_operation_impact,
 )
 from ...constants import (
     CONFIRM_FAILOVER,
     ERROR_READONLY_MODE,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, Optional
+from typing_extensions import Annotated
 
 
 FAILOVER_CLUSTER_TOOL_DESCRIPTION = """Force a failover for an RDS database cluster.
@@ -95,11 +94,10 @@ Example usage scenarios:
 )
 @handle_exceptions
 async def failover_db_cluster(
-    db_cluster_identifier: Annotated[
-        str, Field(description='The identifier for the DB cluster')
-    ],
+    db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     target_db_instance_identifier: Annotated[
-        Optional[str], Field(description='The name of the instance to promote to the primary instance')
+        Optional[str],
+        Field(description='The name of the instance to promote to the primary instance'),
     ] = None,
     confirmation: Annotated[
         Optional[str], Field(description='Confirmation text for destructive operation')
@@ -119,7 +117,7 @@ async def failover_db_cluster(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('failover', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
@@ -127,38 +125,40 @@ async def failover_db_cluster(
     # get confirmation message and impact
     impact = get_operation_impact('failover_db_cluster')
     confirmation_msg = CONFIRM_FAILOVER.format(cluster_id=db_cluster_identifier)
-    
+
     # if no confirmation provided, return warning without executing operation
     if not confirmation:
         return {
             'requires_confirmation': True,
             'warning': confirmation_msg,
             'impact': impact,
-            'message': f'WARNING: You are about to initiate a failover for DB cluster {db_cluster_identifier}. This will cause a brief interruption in database availability. To confirm, please provide the confirmation parameter with the value "CONFIRM_FAILOVER".'
+            'message': f'WARNING: You are about to initiate a failover for DB cluster {db_cluster_identifier}. This will cause a brief interruption in database availability. To confirm, please provide the confirmation parameter with the value "CONFIRM_FAILOVER".',
         }
-    
+
     # if confirmation provided but doesn't match the required confirmation string, return error
-    if confirmation != "CONFIRM_FAILOVER":
+    if confirmation != 'CONFIRM_FAILOVER':
         return {
-            'error': f'Confirmation value must be exactly "CONFIRM_FAILOVER" to proceed with this destructive operation. Operation aborted.'
+            'error': 'Confirmation value must be exactly "CONFIRM_FAILOVER" to proceed with this destructive operation. Operation aborted.'
         }
 
     try:
         params = {
             'DBClusterIdentifier': db_cluster_identifier,
         }
-        
+
         if target_db_instance_identifier:
             params['TargetDBInstanceIdentifier'] = target_db_instance_identifier
 
-        logger.info(f"Initiating failover for DB cluster {db_cluster_identifier}")
+        logger.info(f'Initiating failover for DB cluster {db_cluster_identifier}')
         response = await asyncio.to_thread(rds_client.failover_db_cluster, **params)
-        logger.success(f"Successfully initiated failover for DB cluster {db_cluster_identifier}")
-        
-        result = format_aws_response(response)
-        result['message'] = f'Successfully initiated failover for DB cluster {db_cluster_identifier}'
+        logger.success(f'Successfully initiated failover for DB cluster {db_cluster_identifier}')
+
+        result = format_rds_api_response(response)
+        result['message'] = (
+            f'Successfully initiated failover for DB cluster {db_cluster_identifier}'
+        )
         result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

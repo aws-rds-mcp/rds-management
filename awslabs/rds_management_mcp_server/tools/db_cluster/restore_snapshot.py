@@ -15,25 +15,24 @@
 """Tool to restore an Amazon RDS DB cluster from a snapshot."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
-    format_aws_response,
-    format_cluster_info,
     add_mcp_tags,
+    check_readonly_mode,
+    format_cluster_info,
+    format_rds_api_response,
 )
 from ...constants import (
     ERROR_READONLY_MODE,
     SUCCESS_RESTORED,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List, Optional
+from typing_extensions import Annotated
 
 
 RESTORE_SNAPSHOT_TOOL_DESCRIPTION = """Restore an Amazon RDS database cluster from a snapshot.
@@ -60,9 +59,7 @@ async def restore_db_cluster_from_snapshot(
     snapshot_identifier: Annotated[
         str, Field(description='The identifier for the snapshot to restore from')
     ],
-    engine: Annotated[
-        str, Field(description='The database engine to use for the new cluster')
-    ],
+    engine: Annotated[str, Field(description='The database engine to use for the new cluster')],
     vpc_security_group_ids: Annotated[
         Optional[List[str]], Field(description='A list of VPC security groups for the DB cluster')
     ] = None,
@@ -73,13 +70,16 @@ async def restore_db_cluster_from_snapshot(
         Optional[str], Field(description='The version of the database engine to use')
     ] = None,
     port: Annotated[
-        Optional[int], Field(description='The port number on which the DB cluster accepts connections')
+        Optional[int],
+        Field(description='The port number on which the DB cluster accepts connections'),
     ] = None,
     availability_zones: Annotated[
-        Optional[List[str]], Field(description='A list of Availability Zones for instances in the DB cluster')
+        Optional[List[str]],
+        Field(description='A list of Availability Zones for instances in the DB cluster'),
     ] = None,
     tags: Annotated[
-        Optional[List[Dict[str, str]]], Field(description='Optional list of tags to apply to the new DB cluster')
+        Optional[List[Dict[str, str]]],
+        Field(description='Optional list of tags to apply to the new DB cluster'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -102,7 +102,7 @@ async def restore_db_cluster_from_snapshot(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('restore', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
@@ -113,7 +113,7 @@ async def restore_db_cluster_from_snapshot(
             'SnapshotIdentifier': snapshot_identifier,
             'Engine': engine,
         }
-        
+
         # Add optional parameters if provided
         if vpc_security_group_ids:
             kwargs['VpcSecurityGroupIds'] = vpc_security_group_ids
@@ -125,7 +125,7 @@ async def restore_db_cluster_from_snapshot(
             kwargs['Port'] = port
         if availability_zones:
             kwargs['AvailabilityZones'] = availability_zones
-        
+
         # Add MCP tags and any user-provided tags
         if tags:
             # Format tags for AWS API
@@ -134,19 +134,21 @@ async def restore_db_cluster_from_snapshot(
                 for key, value in tag_item.items():
                     aws_tags.append({'Key': key, 'Value': value})
             kwargs['Tags'] = aws_tags
-        
+
         # Add MCP tags
         kwargs = add_mcp_tags(kwargs)
-        
-        logger.info(f"Restoring DB cluster {db_cluster_identifier} from snapshot {snapshot_identifier}")
+
+        logger.info(
+            f'Restoring DB cluster {db_cluster_identifier} from snapshot {snapshot_identifier}'
+        )
         response = await asyncio.to_thread(rds_client.restore_db_cluster_from_snapshot, **kwargs)
-        logger.success(f"Successfully initiated restore of DB cluster {db_cluster_identifier}")
-        
+        logger.success(f'Successfully initiated restore of DB cluster {db_cluster_identifier}')
+
         # Format the response
-        result = format_aws_response(response)
+        result = format_rds_api_response(response)
         result['message'] = SUCCESS_RESTORED.format(f'DB cluster {db_cluster_identifier}')
         result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception
@@ -177,13 +179,20 @@ async def restore_db_cluster_to_point_in_time(
         str, Field(description='The identifier of the source DB cluster')
     ],
     restore_to_time: Annotated[
-        Optional[str], Field(description='The date and time to restore the DB cluster to (format: YYYY-MM-DDTHH:MM:SSZ)')
+        Optional[str],
+        Field(
+            description='The date and time to restore the DB cluster to (format: YYYY-MM-DDTHH:MM:SSZ)'
+        ),
     ] = None,
     use_latest_restorable_time: Annotated[
-        Optional[bool], Field(description='Specifies whether to restore the DB cluster to the latest restorable backup time')
+        Optional[bool],
+        Field(
+            description='Specifies whether to restore the DB cluster to the latest restorable backup time'
+        ),
     ] = None,
     port: Annotated[
-        Optional[int], Field(description='The port number on which the DB cluster accepts connections')
+        Optional[int],
+        Field(description='The port number on which the DB cluster accepts connections'),
     ] = None,
     db_subnet_group_name: Annotated[
         Optional[str], Field(description='The DB subnet group name to use for the new DB cluster')
@@ -192,7 +201,8 @@ async def restore_db_cluster_to_point_in_time(
         Optional[List[str]], Field(description='A list of VPC security groups for the DB cluster')
     ] = None,
     tags: Annotated[
-        Optional[List[Dict[str, str]]], Field(description='Optional list of tags to apply to the new DB cluster')
+        Optional[List[Dict[str, str]]],
+        Field(description='Optional list of tags to apply to the new DB cluster'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -214,23 +224,21 @@ async def restore_db_cluster_to_point_in_time(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('restore', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
 
     # Validate that either restore_to_time or use_latest_restorable_time is provided
     if not restore_to_time and not use_latest_restorable_time:
-        return {
-            'error': 'Either restore_to_time or use_latest_restorable_time must be provided'
-        }
+        return {'error': 'Either restore_to_time or use_latest_restorable_time must be provided'}
 
     try:
         kwargs = {
             'DBClusterIdentifier': db_cluster_identifier,
             'SourceDBClusterIdentifier': source_db_cluster_identifier,
         }
-        
+
         # Add optional parameters if provided
         if restore_to_time:
             kwargs['RestoreToTime'] = restore_to_time
@@ -242,7 +250,7 @@ async def restore_db_cluster_to_point_in_time(
             kwargs['DBSubnetGroupName'] = db_subnet_group_name
         if vpc_security_group_ids:
             kwargs['VpcSecurityGroupIds'] = vpc_security_group_ids
-        
+
         # Add MCP tags and any user-provided tags
         if tags:
             # Format tags for AWS API
@@ -251,19 +259,25 @@ async def restore_db_cluster_to_point_in_time(
                 for key, value in tag_item.items():
                     aws_tags.append({'Key': key, 'Value': value})
             kwargs['Tags'] = aws_tags
-        
+
         # Add MCP tags
         kwargs = add_mcp_tags(kwargs)
-        
-        logger.info(f"Restoring DB cluster {db_cluster_identifier} to point in time")
-        response = await asyncio.to_thread(rds_client.restore_db_cluster_to_point_in_time, **kwargs)
-        logger.success(f"Successfully initiated point-in-time restore of DB cluster {db_cluster_identifier}")
-        
+
+        logger.info(f'Restoring DB cluster {db_cluster_identifier} to point in time')
+        response = await asyncio.to_thread(
+            rds_client.restore_db_cluster_to_point_in_time, **kwargs
+        )
+        logger.success(
+            f'Successfully initiated point-in-time restore of DB cluster {db_cluster_identifier}'
+        )
+
         # Format the response
-        result = format_aws_response(response)
-        result['message'] = SUCCESS_RESTORED.format(f'DB cluster {db_cluster_identifier} to point in time')
+        result = format_rds_api_response(response)
+        result['message'] = SUCCESS_RESTORED.format(
+            f'DB cluster {db_cluster_identifier} to point in time'
+        )
         result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

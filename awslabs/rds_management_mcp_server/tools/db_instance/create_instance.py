@@ -15,20 +15,14 @@
 """Tool to create a new Amazon RDS database instance."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
     check_readonly_mode,
-    format_aws_response,
     format_instance_info,
+    format_rds_api_response,
     get_engine_port,
     validate_db_identifier,
 )
@@ -37,6 +31,11 @@ from ...constants import (
     ERROR_READONLY_MODE,
     SUCCESS_CREATED,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List, Optional
+from typing_extensions import Annotated
 
 
 CREATE_INSTANCE_TOOL_DESCRIPTION = """Create a new Amazon RDS database instance.
@@ -93,13 +92,15 @@ async def create_db_instance(
         str, Field(description='The identifier for the DB instance')
     ],
     db_instance_class: Annotated[
-        str, Field(description='The compute and memory capacity of the DB instance, e.g., db.m5.large')
+        str,
+        Field(description='The compute and memory capacity of the DB instance, e.g., db.m5.large'),
     ],
     engine: Annotated[
         str, Field(description='The name of the database engine to be used for this instance')
     ],
     allocated_storage: Annotated[
-        Optional[int], Field(description='The amount of storage (in GiB) to be allocated for the DB instance')
+        Optional[int],
+        Field(description='The amount of storage (in GiB) to be allocated for the DB instance'),
     ] = None,
     master_username: Annotated[
         Optional[str], Field(description='The name of the master user for the DB instance')
@@ -108,19 +109,23 @@ async def create_db_instance(
         Optional[str], Field(description='The password for the master user')
     ] = None,
     manage_master_user_password: Annotated[
-        Optional[bool], Field(description='Specifies whether to manage the master user password with AWS Secrets Manager')
+        Optional[bool],
+        Field(
+            description='Specifies whether to manage the master user password with AWS Secrets Manager'
+        ),
     ] = True,
-    db_name: Annotated[
-        Optional[str], Field(description='The name for your database')
-    ] = None,
+    db_name: Annotated[Optional[str], Field(description='The name for your database')] = None,
     db_cluster_identifier: Annotated[
-        Optional[str], Field(description='The identifier of the DB cluster that this instance will belong to')
+        Optional[str],
+        Field(description='The identifier of the DB cluster that this instance will belong to'),
     ] = None,
     vpc_security_group_ids: Annotated[
-        Optional[List[str]], Field(description='A list of EC2 VPC security groups to associate with this DB instance')
+        Optional[List[str]],
+        Field(description='A list of EC2 VPC security groups to associate with this DB instance'),
     ] = None,
     availability_zone: Annotated[
-        Optional[str], Field(description='The Availability Zone where the DB instance will be created')
+        Optional[str],
+        Field(description='The Availability Zone where the DB instance will be created'),
     ] = None,
     db_subnet_group_name: Annotated[
         Optional[str], Field(description='A DB subnet group to associate with this DB instance')
@@ -132,19 +137,25 @@ async def create_db_instance(
         Optional[str], Field(description='The version number of the database engine to use')
     ] = None,
     storage_type: Annotated[
-        Optional[str], Field(description='The storage type to be associated with the DB instance (standard, gp2, io1)')
+        Optional[str],
+        Field(
+            description='The storage type to be associated with the DB instance (standard, gp2, io1)'
+        ),
     ] = None,
     storage_encrypted: Annotated[
         Optional[bool], Field(description='Specifies whether the DB instance is encrypted')
     ] = None,
     port: Annotated[
-        Optional[int], Field(description='The port number on which the database accepts connections')
+        Optional[int],
+        Field(description='The port number on which the database accepts connections'),
     ] = None,
     publicly_accessible: Annotated[
-        Optional[bool], Field(description='Specifies whether the DB instance is publicly accessible')
+        Optional[bool],
+        Field(description='Specifies whether the DB instance is publicly accessible'),
     ] = None,
     backup_retention_period: Annotated[
-        Optional[int], Field(description='The number of days for which automated backups are retained')
+        Optional[int],
+        Field(description='The number of days for which automated backups are retained'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -177,14 +188,16 @@ async def create_db_instance(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('create', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
 
     # validate identifier
     if not validate_db_identifier(db_instance_identifier):
-        error_msg = ERROR_INVALID_PARAMS.format('db_instance_identifier must be 1-63 characters, begin with a letter, and contain only alphanumeric characters and hyphens')
+        error_msg = ERROR_INVALID_PARAMS.format(
+            'db_instance_identifier must be 1-63 characters, begin with a letter, and contain only alphanumeric characters and hyphens'
+        )
         if ctx:
             await ctx.error(error_msg)
         return {'error': error_msg}
@@ -203,22 +216,30 @@ async def create_db_instance(
         else:
             # Standalone instance needs additional parameters
             if allocated_storage is None:
-                error_msg = ERROR_INVALID_PARAMS.format('allocated_storage is required for standalone instances')
+                error_msg = ERROR_INVALID_PARAMS.format(
+                    'allocated_storage is required for standalone instances'
+                )
                 if ctx:
                     await ctx.error(error_msg)
                 return {'error': error_msg}
-                
-            if master_username is None and not master_user_password and not manage_master_user_password:
-                error_msg = ERROR_INVALID_PARAMS.format('master_username and either master_user_password or manage_master_user_password are required for standalone instances')
+
+            if (
+                master_username is None
+                and not master_user_password
+                and not manage_master_user_password
+            ):
+                error_msg = ERROR_INVALID_PARAMS.format(
+                    'master_username and either master_user_password or manage_master_user_password are required for standalone instances'
+                )
                 if ctx:
                     await ctx.error(error_msg)
                 return {'error': error_msg}
-                
+
             params['AllocatedStorage'] = allocated_storage
-            
+
             if master_username:
                 params['MasterUsername'] = master_username
-                
+
             if master_user_password:
                 params['MasterUserPassword'] = master_user_password
             elif manage_master_user_password:
@@ -253,14 +274,14 @@ async def create_db_instance(
         # MCP tags
         params = add_mcp_tags(params)
 
-        logger.info(f"Creating DB instance {db_instance_identifier} with engine {engine}")
+        logger.info(f'Creating DB instance {db_instance_identifier} with engine {engine}')
         response = await asyncio.to_thread(rds_client.create_db_instance, **params)
-        logger.success(f"Successfully created DB instance {db_instance_identifier}")
-        
-        result = format_aws_response(response)
+        logger.success(f'Successfully created DB instance {db_instance_identifier}')
+
+        result = format_rds_api_response(response)
         result['message'] = SUCCESS_CREATED.format(f'DB instance {db_instance_identifier}')
         result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception
