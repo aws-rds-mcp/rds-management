@@ -26,7 +26,7 @@ from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     check_readonly_mode,
-    format_aws_response,
+    format_rds_api_response,
     format_cluster_info,
     get_operation_impact,
 )
@@ -42,7 +42,7 @@ from ...constants import (
 )
 
 
-STATUS_CLUSTER_TOOL_DESCRIPTION = """Manage the status of an RDS database cluster.
+CHANGE_CLUSTER_STATUS_TOOL_DESCRIPTION = """Manage the status of an RDS database cluster.
 
 <use_case>
 Use this tool to change the operational status of an Amazon RDS database cluster.
@@ -99,8 +99,8 @@ Example usage scenarios:
 
 
 @mcp.tool(
-    name='ManageDBClusterStatus',
-    description=STATUS_CLUSTER_TOOL_DESCRIPTION,
+    name='ChangeDBClusterStatus',
+    description=CHANGE_CLUSTER_STATUS_TOOL_DESCRIPTION,
 )
 @handle_exceptions
 async def status_db_cluster(
@@ -188,7 +188,7 @@ async def status_db_cluster(
             )
             logger.success(f"Successfully started DB cluster {db_cluster_identifier}")
             
-            result = format_aws_response(response)
+            result = format_rds_api_response(response)
             result['message'] = SUCCESS_STARTED.format(f'DB cluster {db_cluster_identifier}')
             
         elif action == "stop":
@@ -199,7 +199,7 @@ async def status_db_cluster(
             )
             logger.success(f"Successfully stopped DB cluster {db_cluster_identifier}")
             
-            result = format_aws_response(response)
+            result = format_rds_api_response(response)
             result['message'] = SUCCESS_STOPPED.format(f'DB cluster {db_cluster_identifier}')
             
         elif action == "reboot":
@@ -210,7 +210,7 @@ async def status_db_cluster(
             )
             logger.success(f"Successfully initiated reboot of DB cluster {db_cluster_identifier}")
             
-            result = format_aws_response(response)
+            result = format_rds_api_response(response)
             result['message'] = SUCCESS_REBOOTED.format(f'DB cluster {db_cluster_identifier}')
         
         # add formatted cluster info to the result
