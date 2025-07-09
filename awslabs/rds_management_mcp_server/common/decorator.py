@@ -15,15 +15,12 @@
 """Decorators used by the RDS Management MCP Server."""
 
 import json
+from ..constants import ERROR_CLIENT, ERROR_UNEXPECTED
 from botocore.exceptions import ClientError
 from functools import wraps
 from inspect import iscoroutinefunction
 from loguru import logger
 from typing import Any, Callable
-
-
-ERROR_AWS_API = 'AWS API error: {}'
-ERROR_UNEXPECTED = 'Unexpected error: {}'
 
 
 def handle_exceptions(func: Callable) -> Callable:
@@ -50,12 +47,12 @@ def handle_exceptions(func: Callable) -> Callable:
             if isinstance(error, ClientError):
                 error_code = error.response['Error']['Code']
                 error_message = error.response['Error']['Message']
-                logger.error(f'Failed with AWS error {error_code}: {error_message}')
+                logger.error(f'Failed with client error {error_code}: {error_message}')
 
                 # JSON error response
                 return json.dumps(
                     {
-                        'error': ERROR_AWS_API.format(error_code),
+                        'error': ERROR_CLIENT.format(error_code),
                         'error_code': error_code,
                         'error_message': error_message,
                         'operation': func.__name__,

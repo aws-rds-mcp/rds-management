@@ -25,13 +25,10 @@ from .constants import (
     DEFAULT_PORT_ORACLE,
     DEFAULT_PORT_POSTGRESQL,
     DEFAULT_PORT_SQLSERVER,
-    ERROR_AWS_API,
     ERROR_READONLY_MODE,
-    ERROR_UNEXPECTED,
     MCP_SERVER_VERSION,
     OPERATION_IMPACTS,
 )
-from botocore.exceptions import ClientError
 from loguru import logger
 from mcp.server.fastmcp import Context
 from typing import Any, Dict, Optional
@@ -91,49 +88,6 @@ def convert_datetime_to_string(obj: Any) -> Any:
     elif isinstance(obj, list):
         return [convert_datetime_to_string(item) for item in obj]
     return obj
-
-
-async def handle_aws_error(
-    operation: str, error: Exception, ctx: Optional[Context] = None
-) -> Dict[str, Any]:
-    """Handle AWS API errors consistently.
-
-    Args:
-        operation: The operation that failed
-        error: The exception that was raised
-        ctx: MCP context for error reporting
-
-    Returns:
-        Error response dictionary
-    """
-    if isinstance(error, ClientError):
-        error_code = error.response['Error']['Code']
-        error_message = error.response['Error']['Message']
-        logger.error(f'{operation} failed with AWS error {error_code}: {error_message}')
-
-        error_response = {
-            'error': ERROR_AWS_API.format(error_code),
-            'error_code': error_code,
-            'error_message': error_message,
-            'operation': operation,
-        }
-
-        if ctx:
-            await ctx.error(f'{error_code}: {error_message}')
-
-    else:
-        logger.exception(f'{operation} failed with unexpected error')
-        error_response = {
-            'error': ERROR_UNEXPECTED.format(str(error)),
-            'error_type': type(error).__name__,
-            'error_message': str(error),
-            'operation': operation,
-        }
-
-        if ctx:
-            await ctx.error(str(error))
-
-    return error_response
 
 
 def add_mcp_tags(params: Dict[str, Any]) -> Dict[str, Any]:

@@ -20,7 +20,7 @@ ERROR_READONLY_MODE = (
 )
 ERROR_MISSING_PARAMS = 'Missing required parameters: {}'
 ERROR_INVALID_PARAMS = 'Invalid parameters: {}'
-ERROR_AWS_API = 'AWS API error: {}'
+ERROR_CLIENT = 'Client error: {}'
 ERROR_UNEXPECTED = 'Unexpected error: {}'
 ERROR_NOT_FOUND = 'Resource not found: {}'
 ERROR_OPERATION_FAILED = 'Operation failed: {}'

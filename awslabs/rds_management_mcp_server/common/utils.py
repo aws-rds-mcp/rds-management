@@ -18,19 +18,12 @@ import asyncio
 import time
 import uuid
 from ..common.server import SERVER_VERSION
+from ..constants import ERROR_READONLY_MODE
 from botocore.client import BaseClient
-from botocore.exceptions import ClientError
 from loguru import logger
 from mcp.server.fastmcp import Context
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
-
-# Constants that were previously imported from constants.py
-ERROR_AWS_API = 'AWS API error: {}'
-ERROR_READONLY_MODE = (
-    'This operation requires write access. The server is currently in read-only mode.'
-)
-ERROR_UNEXPECTED = 'Unexpected error: {}'
 
 # Default port values
 DEFAULT_PORT_MYSQL = 3306
@@ -214,49 +207,6 @@ def convert_datetime_to_string(obj: Any) -> Any:
     elif isinstance(obj, list):
         return [convert_datetime_to_string(item) for item in obj]
     return obj
-
-
-async def handle_aws_error(
-    operation: str, error: Exception, ctx: Optional[Context] = None
-) -> Dict[str, Any]:
-    """Handle AWS API errors consistently.
-
-    Args:
-        operation: The operation that failed
-        error: The exception that was raised
-        ctx: MCP context for error reporting
-
-    Returns:
-        Error response dictionary
-    """
-    if isinstance(error, ClientError):
-        error_code = error.response['Error']['Code']
-        error_message = error.response['Error']['Message']
-        logger.error(f'{operation} failed with AWS error {error_code}: {error_message}')
-
-        error_response = {
-            'error': ERROR_AWS_API.format(error_code),
-            'error_code': error_code,
-            'error_message': error_message,
-            'operation': operation,
-        }
-
-        if ctx:
-            await ctx.error(f'{error_code}: {error_message}')
-
-    else:
-        logger.exception(f'{operation} failed with unexpected error')
-        error_response = {
-            'error': ERROR_UNEXPECTED.format(str(error)),
-            'error_type': type(error).__name__,
-            'error_message': str(error),
-            'operation': operation,
-        }
-
-        if ctx:
-            await ctx.error(str(error))
-
-    return error_response
 
 
 def add_mcp_tags(params: Dict[str, Any]) -> Dict[str, Any]:
