@@ -26,7 +26,7 @@ from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     check_readonly_mode,
-    format_aws_response,
+    format_rds_api_response,
     format_instance_info,
     get_operation_impact,
 )
@@ -41,7 +41,7 @@ from ...constants import (
 )
 
 
-STATUS_INSTANCE_TOOL_DESCRIPTION = """Manage the status of an Amazon RDS database instance.
+CHANGE_INSTANCE_STATUS_TOOL_DESCRIPTION = """Manage the status of an Amazon RDS database instance.
 
 This tool allows you to change the status of an RDS database instance:
 
@@ -60,7 +60,7 @@ These operations affect the availability of your database:
 
 @mcp.tool(
     name='ManageDBInstanceStatus',
-    description=STATUS_INSTANCE_TOOL_DESCRIPTION,
+    description=CHANGE_INSTANCE_STATUS_TOOL_DESCRIPTION,
 )
 @handle_exceptions
 async def status_db_instance(
@@ -152,7 +152,7 @@ async def status_db_instance(
             )
             logger.success(f"Successfully started DB instance {db_instance_identifier}")
             
-            result = format_aws_response(response)
+            result = format_rds_api_response(response)
             result['message'] = SUCCESS_STARTED.format(f'DB instance {db_instance_identifier}')
             
         elif action == "stop":
@@ -163,7 +163,7 @@ async def status_db_instance(
             )
             logger.success(f"Successfully stopped DB instance {db_instance_identifier}")
             
-            result = format_aws_response(response)
+            result = format_rds_api_response(response)
             result['message'] = SUCCESS_STOPPED.format(f'DB instance {db_instance_identifier}')
             
         elif action == "reboot":
@@ -175,7 +175,7 @@ async def status_db_instance(
             )
             logger.success(f"Successfully initiated reboot of DB instance {db_instance_identifier}")
             
-            result = format_aws_response(response)
+            result = format_rds_api_response(response)
             result['message'] = SUCCESS_REBOOTED.format(f'DB instance {db_instance_identifier}')
         
         # add formatted instance info to the result
