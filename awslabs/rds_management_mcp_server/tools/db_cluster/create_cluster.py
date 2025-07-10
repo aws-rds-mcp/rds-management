@@ -23,10 +23,10 @@ from ...common.utils import (
     check_readonly_mode,
     format_cluster_info,
     format_rds_api_response,
-    get_engine_port,
     validate_db_identifier,
 )
 from ...constants import (
+    ENGINE_PORT_MAP,
     ERROR_INVALID_PARAMS,
     ERROR_READONLY_MODE,
     SUCCESS_CREATED,
@@ -196,7 +196,8 @@ async def create_db_cluster(
         if port is not None:
             params['Port'] = port
         else:
-            params['Port'] = get_engine_port(engine)
+            engine_lower = engine.lower()
+            params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
         if engine_version:
             params['EngineVersion'] = engine_version
 

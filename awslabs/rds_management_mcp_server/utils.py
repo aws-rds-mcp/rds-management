@@ -18,13 +18,6 @@ import asyncio
 import time
 import uuid
 from .constants import (
-    DEFAULT_PORT_AURORA,
-    DEFAULT_PORT_AURORA_POSTGRESQL,
-    DEFAULT_PORT_MARIADB,
-    DEFAULT_PORT_MYSQL,
-    DEFAULT_PORT_ORACLE,
-    DEFAULT_PORT_POSTGRESQL,
-    DEFAULT_PORT_SQLSERVER,
     ERROR_READONLY_MODE,
     MCP_SERVER_VERSION,
     OPERATION_IMPACTS,
@@ -177,37 +170,6 @@ def validate_db_identifier(identifier: str) -> bool:
         return False
 
     return True
-
-
-def get_engine_port(engine: str) -> int:
-    """Get the default port for a database engine.
-
-    Args:
-        engine: The database engine type
-
-    Returns:
-        Default port number
-    """
-    engine_lower = engine.lower()
-
-    if 'aurora-postgresql' in engine_lower:
-        return DEFAULT_PORT_AURORA_POSTGRESQL
-    elif 'aurora' in engine_lower:
-        return DEFAULT_PORT_AURORA
-    elif 'postgres' in engine_lower:
-        return DEFAULT_PORT_POSTGRESQL
-    elif 'mysql' in engine_lower:
-        return DEFAULT_PORT_MYSQL
-    elif 'mariadb' in engine_lower:
-        return DEFAULT_PORT_MARIADB
-    elif 'oracle' in engine_lower:
-        return DEFAULT_PORT_ORACLE
-    elif 'sqlserver' in engine_lower:
-        return DEFAULT_PORT_SQLSERVER
-    else:
-        # default to MySQL port if unknown engine
-        logger.warning(f'Unknown engine type: {engine}. Using default MySQL port.')
-        return DEFAULT_PORT_MYSQL
 
 
 def format_cluster_info(cluster: Dict[str, Any]) -> Dict[str, Any]:

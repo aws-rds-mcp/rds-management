@@ -23,10 +23,10 @@ from ...common.utils import (
     check_readonly_mode,
     format_instance_info,
     format_rds_api_response,
-    get_engine_port,
     validate_db_identifier,
 )
 from ...constants import (
+    ENGINE_PORT_MAP,
     ERROR_INVALID_PARAMS,
     ERROR_READONLY_MODE,
     SUCCESS_CREATED,
@@ -265,7 +265,8 @@ async def create_db_instance(
         if port is not None:
             params['Port'] = port
         elif not db_cluster_identifier:  # Don't set port for cluster instances
-            params['Port'] = get_engine_port(engine)
+            engine_lower = engine.lower()
+            params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
         if publicly_accessible is not None:
             params['PubliclyAccessible'] = publicly_accessible
         if backup_retention_period is not None:

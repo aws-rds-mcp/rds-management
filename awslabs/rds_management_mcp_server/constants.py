@@ -60,13 +60,18 @@ ENGINE_SQLSERVER = 'sqlserver'
 
 # Default Values
 DEFAULT_BACKUP_RETENTION_PERIOD = 7
-DEFAULT_PORT_MYSQL = 3306
-DEFAULT_PORT_POSTGRESQL = 5432
-DEFAULT_PORT_MARIADB = 3306
-DEFAULT_PORT_ORACLE = 1521
-DEFAULT_PORT_SQLSERVER = 1433
-DEFAULT_PORT_AURORA = 3306  # compatible with MySQL
-DEFAULT_PORT_AURORA_POSTGRESQL = 5432  # Aurora PostgreSQL
+
+# Engine port mapping
+ENGINE_PORT_MAP = {
+    'aurora': 3306,
+    'aurora-mysql': 3306,
+    'aurora-postgresql': 5432,
+    'mysql': 3306,
+    'postgres': 5432,
+    'mariadb': 3306,
+    'oracle': 1521,
+    'sqlserver': 1433,
+}
 
 # Resource URIs
 RESOURCE_PREFIX_DB_CLUSTER = 'aws-rds://clusters'
