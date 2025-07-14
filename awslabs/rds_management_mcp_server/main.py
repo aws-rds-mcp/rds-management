@@ -45,7 +45,7 @@ def main():
     )
     parser.add_argument(
         '--readonly',
-        default='true',
+        default=True,
         action=argparse.BooleanOptionalAction,
         help='Prevents the MCP server from performing mutating operations',
     )
@@ -61,8 +61,9 @@ def main():
 
     # init connection manager and context
     readonly_mode = args.readonly
+    logger.info(f'Command line readonly flag: {readonly_mode}')
     RDSConnectionManager.initialize(readonly=readonly_mode, region=args.region)
-    Context.initialize(readonly_mode, args.max_items)
+    Context.initialize(readonly=readonly_mode, max_items=args.max_items)
 
     # config server port
     mcp.settings.port = args.port
