@@ -80,56 +80,25 @@ RESOURCE_PREFIX_DB_INSTANCE = 'aws-rds://instances'
 # Default config values
 DEFAULT_MAX_ITEMS = 100
 
-# Confirmation Messages
-CONFIRM_DELETE_CLUSTER = """
-⚠️ WARNING: You are about to delete the database cluster '{cluster_id}'.
+# Standard Confirmation Message
+STANDARD_CONFIRMATION_MESSAGE = """
+⚠️ WARNING: You are about to perform an operation that may have significant impact.
 
-This action will:
-- Permanently delete all data in the cluster (unless a final snapshot is created)
-- Terminate all instances in the cluster
-- Cause downtime for any applications using this database
-- Remove all automated backups after the retention period
+Please review the details below carefully before proceeding:
 
-This operation cannot be undone.
+- Operation: {operation}
+- Resource: {resource_type} '{identifier}'
+- Risk Level: {risk_level}
+
+This operation requires explicit confirmation.
+To confirm, please call this function again with the confirmation parameter.
 """
 
-CONFIRM_DELETE_INSTANCE = """
-⚠️ WARNING: You are about to delete the database instance '{instance_id}'.
-
-This action will:
-- Permanently delete all data in the instance (unless a final snapshot is created)
-- Cause downtime for any applications using this database
-- Remove all automated backups after the retention period
-
-This operation cannot be undone.
-"""
-
-CONFIRM_STOP_CLUSTER = """
-⚠️ NOTICE: You are about to stop the database cluster '{cluster_id}'.
-
-This action will:
-- Stop all instances in the cluster
-- Make the database unavailable to applications
-- Continue to incur storage charges
-- Preserve all data and configurations
-
-The cluster can be restarted later.
-"""
-
+# Confirmation tokens
 CONFIRM_STOP = 'CONFIRM_STOP'
 CONFIRM_START = 'CONFIRM_START'
 CONFIRM_REBOOT = 'CONFIRM_REBOOT'
-
-CONFIRM_FAILOVER = """
-⚠️ NOTICE: You are about to initiate a failover for cluster '{cluster_id}'.
-
-This action will:
-- Promote a read replica to become the new primary instance
-- Cause a brief interruption in database availability (typically 30-60 seconds)
-- Update the cluster endpoint to point to the new primary
-
-This is typically used for disaster recovery or maintenance.
-"""
+CONFIRM_FAILOVER = 'CONFIRM_FAILOVER'
 
 # Operation Impact Descriptions
 OPERATION_IMPACTS = {
