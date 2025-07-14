@@ -16,19 +16,15 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
-    check_readonly_mode,
     format_cluster_info,
     format_rds_api_response,
-    validate_db_identifier,
 )
 from ...constants import (
     ENGINE_PORT_MAP,
-    ERROR_INVALID_PARAMS,
-    ERROR_READONLY_MODE,
     SUCCESS_CREATED,
 )
 from loguru import logger
@@ -91,6 +87,7 @@ Example usage scenarios:
     description=CREATE_CLUSTER_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def create_db_cluster(
     db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     engine: Annotated[
@@ -160,19 +157,6 @@ async def create_db_cluster(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('create', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # validate identifier
-    if not validate_db_identifier(db_cluster_identifier):
-        error_msg = ERROR_INVALID_PARAMS.format(
-            'db_cluster_identifier must be 1-63 characters, begin with a letter, and contain only alphanumeric characters and hyphens'
-        )
-        if ctx:
-            await ctx.error(error_msg)
-        return {'error': error_msg}
 
     try:
         params = {

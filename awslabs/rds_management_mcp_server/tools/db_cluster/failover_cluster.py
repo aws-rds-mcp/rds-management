@@ -16,17 +16,11 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
     format_cluster_info,
     format_rds_api_response,
-    get_operation_impact,
-)
-from ...constants import (
-    CONFIRM_FAILOVER,
-    ERROR_READONLY_MODE,
 )
 from loguru import logger
 from mcp.server.fastmcp import Context
@@ -44,7 +38,7 @@ to a different availability zone, or to recover from issues with the current pri
 </use_case>
 
 <important_notes>
-1. This operation requires explicit confirmation with the text "CONFIRM_FAILOVER"
+1. This operation requires explicit confirmation with a confirmation token
 2. Failover causes a momentary interruption in database availability
 3. Any in-flight transactions that haven't been committed may be lost during failover
 4. The cluster must be in the "available" state for the failover to succeed
@@ -74,16 +68,16 @@ Example usage scenarios:
 
 2. Confirm failover without specifying a target:
    - db_cluster_identifier="production-cluster"
-   - confirmation="CONFIRM_FAILOVER"
+   - confirmation_token="abc123xyz" (token received from step 1)
 
 3. Failover to a specific replica instance:
    - db_cluster_identifier="production-cluster"
    - target_db_instance_identifier="production-instance-east-1c"
-   - confirmation="CONFIRM_FAILOVER"
+   - confirmation_token="abc123xyz" (token received from step 1)
 
 4. Regular disaster recovery drill:
    - db_cluster_identifier="production-cluster"
-   - confirmation="CONFIRM_FAILOVER"
+   - confirmation_token="abc123xyz" (token received from step 1)
 </examples>
 """
 
@@ -93,14 +87,16 @@ Example usage scenarios:
     description=FAILOVER_CLUSTER_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
+@require_confirmation('failover_db_cluster')
 async def failover_db_cluster(
     db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     target_db_instance_identifier: Annotated[
         Optional[str],
         Field(description='The name of the instance to promote to the primary instance'),
     ] = None,
-    confirmation: Annotated[
-        Optional[str], Field(description='Confirmation text for destructive operation')
+    confirmation_token: Annotated[
+        Optional[str], Field(description='Confirmation token for destructive operation')
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -109,7 +105,7 @@ async def failover_db_cluster(
     Args:
         db_cluster_identifier: The identifier for the DB cluster
         target_db_instance_identifier: The name of the instance to promote to primary
-        confirmation: Confirmation text for destructive operation
+        confirmation_token: Confirmation token for destructive operation
         ctx: MCP context for logging and state management
 
     Returns:
@@ -117,29 +113,6 @@ async def failover_db_cluster(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('failover', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # get confirmation message and impact
-    impact = get_operation_impact('failover_db_cluster')
-    confirmation_msg = CONFIRM_FAILOVER.format(cluster_id=db_cluster_identifier)
-
-    # if no confirmation provided, return warning without executing operation
-    if not confirmation:
-        return {
-            'requires_confirmation': True,
-            'warning': confirmation_msg,
-            'impact': impact,
-            'message': f'WARNING: You are about to initiate a failover for DB cluster {db_cluster_identifier}. This will cause a brief interruption in database availability. To confirm, please provide the confirmation parameter with the value "CONFIRM_FAILOVER".',
-        }
-
-    # if confirmation provided but doesn't match the required confirmation string, return error
-    if confirmation != 'CONFIRM_FAILOVER':
-        return {
-            'error': 'Confirmation value must be exactly "CONFIRM_FAILOVER" to proceed with this destructive operation. Operation aborted.'
-        }
 
     try:
         params = {

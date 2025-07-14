@@ -16,15 +16,13 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
-    check_readonly_mode,
     format_rds_api_response,
 )
 from ...constants import (
-    ERROR_READONLY_MODE,
     SUCCESS_CREATED,
 )
 from loguru import logger
@@ -50,6 +48,7 @@ Creating snapshots may temporarily affect database performance.
     description=CREATE_SNAPSHOT_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def create_db_cluster_snapshot(
     db_cluster_snapshot_identifier: Annotated[
         str, Field(description='The identifier for the DB cluster snapshot')
@@ -76,10 +75,6 @@ async def create_db_cluster_snapshot(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('create', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     try:
         kwargs = {

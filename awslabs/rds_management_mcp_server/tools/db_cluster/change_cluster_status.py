@@ -16,19 +16,13 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
     format_cluster_info,
     format_rds_api_response,
-    get_operation_impact,
 )
 from ...constants import (
-    CONFIRM_REBOOT,
-    CONFIRM_START,
-    CONFIRM_STOP,
-    ERROR_READONLY_MODE,
     SUCCESS_REBOOTED,
     SUCCESS_STARTED,
     SUCCESS_STOPPED,
@@ -49,7 +43,7 @@ configuration changes or resolve certain issues.
 </use_case>
 
 <important_notes>
-1. Each action requires explicit confirmation with a specific confirmation string
+1. Each action requires explicit confirmation with a confirmation token
 2. Stopping a cluster will make it unavailable but will continue to incur storage charges
 3. Starting a cluster will resume full billing charges
 4. Rebooting causes a brief interruption but preserves cluster settings and data
@@ -81,17 +75,17 @@ Example usage scenarios:
 2. Confirm stopping the cluster:
    - db_cluster_identifier="dev-db-cluster"
    - action="stop"
-   - confirmation="CONFIRM_STOP"
+   - confirmation_token="abc123xyz" (token received from step 1)
 
 3. Reboot a cluster that's experiencing issues:
    - db_cluster_identifier="prod-db-cluster"
    - action="reboot"
-   - confirmation="CONFIRM_REBOOT"
+   - confirmation_token="abc123xyz" (token received from step 1)
 
 4. Start a previously stopped cluster:
    - db_cluster_identifier="dev-db-cluster"
    - action="start"
-   - confirmation="CONFIRM_START"
+   - confirmation_token="abc123xyz" (token received from step 1)
 </examples>
 """
 
@@ -101,11 +95,13 @@ Example usage scenarios:
     description=CHANGE_CLUSTER_STATUS_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
+@require_confirmation('status_db_cluster')
 async def status_db_cluster(
     db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     action: Annotated[str, Field(description='Action to perform: "start", "stop", or "reboot"')],
-    confirmation: Annotated[
-        Optional[str], Field(description='Confirmation text for destructive operations')
+    confirmation_token: Annotated[
+        Optional[str], Field(description='Confirmation token for destructive operations')
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -114,7 +110,7 @@ async def status_db_cluster(
     Args:
         db_cluster_identifier: The identifier for the DB cluster
         action: Action to perform: "start", "stop", or "reboot"
-        confirmation: Confirmation text for destructive operations
+        confirmation_token: Confirmation token for destructive operations
         ctx: MCP context for logging and state management
 
     Returns:
@@ -127,49 +123,6 @@ async def status_db_cluster(
 
     if action not in ['start', 'stop', 'reboot']:
         return {'error': f'Invalid action: {action}. Must be one of: start, stop, reboot'}
-
-    # check read-only mode
-    if not check_readonly_mode(action, Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # define confirmation requirements and warning messages for each action
-    confirmation_requirements = {
-        'start': {
-            'required_confirmation': CONFIRM_START,
-            'warning_message': f'WARNING: You are about to start DB cluster {db_cluster_identifier}. Starting a stopped cluster will resume billing charges and may incur costs. To confirm, please provide the confirmation parameter with the value "{CONFIRM_START}".',
-            'impact': get_operation_impact('start_db_cluster'),
-        },
-        'stop': {
-            'required_confirmation': CONFIRM_STOP,
-            'warning_message': f'WARNING: You are about to stop DB cluster {db_cluster_identifier}. This will make the database unavailable until it is started again. To confirm, please provide the confirmation parameter with the value "{CONFIRM_STOP}".',
-            'impact': get_operation_impact('stop_db_cluster'),
-        },
-        'reboot': {
-            'required_confirmation': CONFIRM_REBOOT,
-            'warning_message': f'WARNING: You are about to reboot DB cluster {db_cluster_identifier}. This will cause a brief interruption in database availability. To confirm, please provide the confirmation parameter with the value "{CONFIRM_REBOOT}".',
-            'impact': get_operation_impact('reboot_db_cluster'),
-        },
-    }
-
-    # get confirmation requirements for the current action
-    required_confirmation = confirmation_requirements[action]['required_confirmation']
-    warning_message = confirmation_requirements[action]['warning_message']
-    impact = confirmation_requirements[action]['impact']
-
-    # if no confirmation provided, return warning without executing operation
-    if not confirmation:
-        return {
-            'requires_confirmation': True,
-            'warning': warning_message,
-            'impact': impact,
-            'message': warning_message,
-        }
-
-    # if confirmation provided but doesn't match the required confirmation string, return error
-    if confirmation != required_confirmation:
-        return {
-            'error': f'Confirmation value must be exactly "{required_confirmation}" to proceed with this operation. Operation aborted.'
-        }
 
     try:
         if action == 'start':

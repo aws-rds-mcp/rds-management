@@ -16,16 +16,14 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
-    check_readonly_mode,
     format_cluster_info,
     format_rds_api_response,
 )
 from ...constants import (
-    ERROR_READONLY_MODE,
     SUCCESS_RESTORED,
 )
 from loguru import logger
@@ -52,6 +50,7 @@ This operation creates AWS resources that will incur costs on your AWS account.
     description=RESTORE_SNAPSHOT_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def restore_db_cluster_from_snapshot(
     db_cluster_identifier: Annotated[
         str, Field(description='The name of the DB cluster to create from the snapshot')
@@ -102,10 +101,6 @@ async def restore_db_cluster_from_snapshot(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('restore', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     try:
         kwargs = {
@@ -171,6 +166,7 @@ This operation creates AWS resources that will incur costs on your AWS account.
     description=RESTORE_POINT_IN_TIME_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def restore_db_cluster_to_point_in_time(
     db_cluster_identifier: Annotated[
         str, Field(description='The name of the new DB cluster to be created')
@@ -224,10 +220,6 @@ async def restore_db_cluster_to_point_in_time(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('restore', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     # Validate that either restore_to_time or use_latest_restorable_time is provided
     if not restore_to_time and not use_latest_restorable_time:

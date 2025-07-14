@@ -16,20 +16,13 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
 from ...common.server import mcp
 from ...common.utils import (
-    add_pending_operation,
-    check_readonly_mode,
     format_instance_info,
     format_rds_api_response,
-    get_operation_impact,
-    get_pending_operation,
-    remove_pending_operation,
 )
 from ...constants import (
-    CONFIRM_DELETE_INSTANCE,
-    ERROR_READONLY_MODE,
     SUCCESS_DELETED,
 )
 from loguru import logger
@@ -56,6 +49,8 @@ Without a final snapshot, all data will be permanently lost.
     description=DELETE_INSTANCE_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
+@require_confirmation('delete_db_instance')
 async def delete_db_instance(
     db_instance_identifier: Annotated[
         str, Field(description='The identifier for the DB instance')
@@ -92,63 +87,7 @@ async def delete_db_instance(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    # Check if server is in readonly mode
-    if not check_readonly_mode('delete', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # confirmation message and impact
-    impact = get_operation_impact('delete_db_instance')
-    confirmation_msg = CONFIRM_DELETE_INSTANCE.format(instance_id=db_instance_identifier)
-
-    # if no confirmation token provided, create a pending operation and return a token
-    if not confirmation_token:
-        # create parameters for the operation
-        params = {
-            'db_instance_identifier': db_instance_identifier,
-            'skip_final_snapshot': skip_final_snapshot,
-        }
-
-        if not skip_final_snapshot and final_db_snapshot_identifier:
-            params['final_db_snapshot_identifier'] = final_db_snapshot_identifier
-
-        # add the pending operation and get a token
-        token = add_pending_operation('delete_db_instance', params)
-
-        # return the token directly in the response
-        return {
-            'requires_confirmation': True,
-            'warning': confirmation_msg,
-            'impact': impact,
-            'confirmation_token': token,
-            'message': f'WARNING: You are about to delete DB instance {db_instance_identifier}. This operation cannot be undone.\n\nTo confirm, please call this function again with the confirmation_token parameter set to this token.',
-        }
-
-    # if confirmation token provided, check if it's valid
-    pending_op = get_pending_operation(confirmation_token)
-    if not pending_op:
-        return {
-            'error': 'Invalid or expired confirmation token. Please request a new token by calling this function without a confirmation_token parameter.'
-        }
-
-    # extract operation details
-    op_type, params, _ = pending_op
-
-    # verify that this is the correct operation type
-    if op_type != 'delete_db_instance':
-        return {
-            'error': f'Invalid operation type. Expected "delete_db_instance", got "{op_type}".'
-        }
-
-    # verify that the parameters match
-    if params.get('db_instance_identifier') != db_instance_identifier:
-        return {
-            'error': 'Parameter mismatch. The confirmation token is for a different DB instance.'
-        }
-
     try:
-        # remove the pending operation
-        remove_pending_operation(confirmation_token)
-
         # AWS API parameters
         aws_params = {
             'DBInstanceIdentifier': db_instance_identifier,
