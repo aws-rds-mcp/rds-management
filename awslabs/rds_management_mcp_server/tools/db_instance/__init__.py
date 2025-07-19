@@ -17,7 +17,7 @@
 from .create_instance import create_db_instance
 from .modify_instance import modify_db_instance
 from .delete_instance import delete_db_instance
-from .status_instance import status_db_instance
+from .change_instance_status import status_db_instance
 from .describe_instances import describe_db_instances
 
 __all__ = [

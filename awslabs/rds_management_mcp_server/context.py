@@ -14,7 +14,11 @@
 
 """Context management for Amazon RDS Management MCP Server."""
 
-from typing import Dict, Any
+import asyncio
+from .constants import ERROR_READONLY_MODE
+from loguru import logger
+from mcp.server.fastmcp import Context as MCPContext
+from typing import Any, Dict, Optional
 
 
 class Context:
@@ -62,3 +66,21 @@ class Context:
         return {
             'MaxItems': cls._max_items,
         }
+
+    @classmethod
+    def check_operation_allowed(cls, operation: str, ctx: Optional['MCPContext'] = None) -> bool:
+        """Check if operation is allowed in current mode.
+
+        Args:
+            operation: The operation being attempted
+            ctx: MCP context for error reporting
+
+        Returns:
+            True if operation is allowed, False otherwise
+        """
+        if cls._readonly and operation not in ['describe', 'list', 'get']:
+            logger.warning(f'Operation {operation} blocked in readonly mode')
+            if ctx:
+                asyncio.create_task(ctx.error(ERROR_READONLY_MODE))
+            return False
+        return True

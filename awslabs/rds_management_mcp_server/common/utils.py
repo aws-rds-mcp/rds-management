@@ -17,17 +17,13 @@
 import asyncio
 import time
 import uuid
+from ..common.server import SERVER_VERSION
+from ..constants import ERROR_READONLY_MODE
 from botocore.client import BaseClient
-from botocore.exceptions import ClientError
 from loguru import logger
 from mcp.server.fastmcp import Context
 from typing import Any, Callable, Dict, List, Optional, TypeVar
-from ..common.server import SERVER_VERSION
-    
-# Constants that were previously imported from constants.py
-ERROR_AWS_API = 'AWS API error: {}'
-ERROR_READONLY_MODE = 'This operation requires write access. The server is currently in read-only mode.'
-ERROR_UNEXPECTED = 'Unexpected error: {}'
+
 
 # Default port values
 DEFAULT_PORT_MYSQL = 3306
@@ -83,7 +79,6 @@ OPERATION_IMPACTS = {
         'reversible': True,
         'estimated_time': '5-10 minutes',
     },
-    
     # Instance operations
     'delete_db_instance': {
         'risk': 'critical',
@@ -160,12 +155,12 @@ def handle_paginated_aws_api_call(
 
 def check_readonly_mode(operation: str, readonly: bool, ctx: Optional[Context] = None) -> bool:
     """Check if operation is allowed in current mode.
-    
+
     Args:
         operation: The operation being attempted
         readonly: Whether server is in readonly mode
         ctx: MCP context for error reporting
-        
+
     Returns:
         True if operation is allowed, False otherwise
     """
@@ -177,34 +172,34 @@ def check_readonly_mode(operation: str, readonly: bool, ctx: Optional[Context] =
     return True
 
 
-def format_aws_response(response: Dict[str, Any]) -> Dict[str, Any]:
+def format_rds_api_response(response: Dict[str, Any]) -> Dict[str, Any]:
     """Format AWS API response for MCP.
-    
+
     Args:
         response: Raw AWS API response
-        
+
     Returns:
         Formatted response dictionary
     """
     # remove ResponseMetadata as it's not useful for LLMs
     if 'ResponseMetadata' in response:
         del response['ResponseMetadata']
-    
+
     # convert datetime objects to strings
     return convert_datetime_to_string(response)
 
 
 def convert_datetime_to_string(obj: Any) -> Any:
     """Recursively convert datetime objects to ISO format strings.
-    
+
     Args:
         obj: Object to convert
-        
+
     Returns:
         Object with datetime objects converted to strings
     """
     import datetime
-    
+
     if isinstance(obj, datetime.datetime):
         return obj.isoformat()
     elif isinstance(obj, dict):
@@ -214,103 +209,56 @@ def convert_datetime_to_string(obj: Any) -> Any:
     return obj
 
 
-async def handle_aws_error(operation: str, error: Exception, ctx: Optional[Context] = None) -> Dict[str, Any]:
-    """Handle AWS API errors consistently.
-    
-    Args:
-        operation: The operation that failed
-        error: The exception that was raised
-        ctx: MCP context for error reporting
-        
-    Returns:
-        Error response dictionary
-    """
-    if isinstance(error, ClientError):
-        error_code = error.response['Error']['Code']
-        error_message = error.response['Error']['Message']
-        logger.error(f'{operation} failed with AWS error {error_code}: {error_message}')
-        
-        error_response = {
-            'error': ERROR_AWS_API.format(error_code),
-            'error_code': error_code,
-            'error_message': error_message,
-            'operation': operation
-        }
-        
-        if ctx:
-            await ctx.error(f'{error_code}: {error_message}')
-            
-    else:
-        logger.exception(f'{operation} failed with unexpected error')
-        error_response = {
-            'error': ERROR_UNEXPECTED.format(str(error)),
-            'error_type': type(error).__name__,
-            'error_message': str(error),
-            'operation': operation
-        }
-        
-        if ctx:
-            await ctx.error(str(error))
-    
-    return error_response
-
-
 def add_mcp_tags(params: Dict[str, Any]) -> Dict[str, Any]:
     """Add MCP server version tag to resource creation parameters.
-    
+
     Args:
         params: Parameters for resource creation
-        
+
     Returns:
         Parameters with MCP tags added
     """
     tags = params.get('Tags', [])
-    tags.append({
-        'Key': 'mcp_server_version',
-        'Value': SERVER_VERSION
-    })
-    tags.append({
-        'Key': 'created_by',
-        'Value': 'rds-management-mcp-server'
-    })
+    tags.append({'Key': 'mcp_server_version', 'Value': SERVER_VERSION})
+    tags.append({'Key': 'created_by', 'Value': 'rds-management-mcp-server'})
     params['Tags'] = tags
     return params
 
 
 def get_operation_impact(operation: str) -> Dict[str, Any]:
     """Get detailed impact information for an operation.
-    
+
     Args:
         operation: The operation name
-        
+
     Returns:
         Dictionary with impact details
     """
     if operation in OPERATION_IMPACTS:
         return OPERATION_IMPACTS[operation]
-    
+
     # default impact for unknown operations
     return {
         'risk': get_operation_risk_level(operation),
         'downtime': 'Unknown',
         'data_loss': 'Unknown',
         'reversible': 'Unknown',
-        'estimated_time': 'Unknown'
+        'estimated_time': 'Unknown',
     }
 
 
 def get_operation_risk_level(operation: str) -> str:
     """Get the risk level for an operation.
-    
+
     Args:
         operation: The operation name
-        
+
     Returns:
         Risk level (low, high, or critical)
     """
     if operation in OPERATION_IMPACTS:
         return OPERATION_IMPACTS[operation]['risk']
-    
+
     # default risk levels based on operation type
     if operation.startswith('delete_'):
         return 'critical'
@@ -322,45 +270,45 @@ def get_operation_risk_level(operation: str) -> str:
 
 def validate_db_identifier(identifier: str) -> bool:
     """Validate a database identifier according to AWS rules.
-    
+
     Args:
         identifier: The identifier to validate
-        
+
     Returns:
         True if valid, False otherwise
     """
     import re
-    
+
     # AWS RDS identifier rules:
     # - 1-63 characters
     # - Begin with a letter
     # - Contain only alphanumeric characters and hyphens
     # - No two consecutive hyphens
     # - Not end with a hyphen
-    
+
     if not identifier or len(identifier) > 63:
         return False
-    
+
     if not re.match(r'^[a-zA-Z][a-zA-Z0-9-]*$', identifier):
         return False
-    
+
     if '--' in identifier or identifier.endswith('-'):
         return False
-    
+
     return True
 
 
 def get_engine_port(engine: str) -> int:
     """Get the default port for a database engine.
-    
+
     Args:
         engine: The database engine type
-        
+
     Returns:
         Default port number
     """
     engine_lower = engine.lower()
-    
+
     if 'aurora-postgresql' in engine_lower:
         return DEFAULT_PORT_AURORA_POSTGRESQL
     elif 'aurora' in engine_lower:
@@ -377,16 +325,16 @@ def get_engine_port(engine: str) -> int:
         return DEFAULT_PORT_SQLSERVER
     else:
         # default to MySQL port if unknown engine
-        logger.warning(f"Unknown engine type: {engine}. Using default MySQL port.")
+        logger.warning(f'Unknown engine type: {engine}. Using default MySQL port.')
         return DEFAULT_PORT_MYSQL
 
 
 def format_cluster_info(cluster: Dict[str, Any]) -> Dict[str, Any]:
     """Format cluster information for better readability.
-    
+
     Args:
         cluster: Raw cluster data from AWS
-        
+
     Returns:
         Formatted cluster information
     """
@@ -406,27 +354,26 @@ def format_cluster_info(cluster: Dict[str, Any]) -> Dict[str, Any]:
             {
                 'instance_id': member.get('DBInstanceIdentifier'),
                 'is_writer': member.get('IsClusterWriter'),
-                'status': member.get('DBClusterParameterGroupStatus')
+                'status': member.get('DBClusterParameterGroupStatus'),
             }
             for member in cluster.get('DBClusterMembers', [])
         ],
         'vpc_security_groups': [
-            {
-                'id': sg.get('VpcSecurityGroupId'),
-                'status': sg.get('Status')
-            }
+            {'id': sg.get('VpcSecurityGroupId'), 'status': sg.get('Status')}
             for sg in cluster.get('VpcSecurityGroups', [])
         ],
-        'tags': {tag['Key']: tag['Value'] for tag in cluster.get('TagList', [])} if cluster.get('TagList') else {}
+        'tags': {tag['Key']: tag['Value'] for tag in cluster.get('TagList', [])}
+        if cluster.get('TagList')
+        else {},
     }
 
 
 def format_instance_info(instance: Dict[str, Any]) -> Dict[str, Any]:
     """Format instance information for better readability.
-    
+
     Args:
         instance: Raw instance data from AWS
-        
+
     Returns:
         Formatted instance information
     """
@@ -437,11 +384,11 @@ def format_instance_info(instance: Dict[str, Any]) -> Dict[str, Any]:
             endpoint = {
                 'address': instance['Endpoint'].get('Address'),
                 'port': instance['Endpoint'].get('Port'),
-                'hosted_zone_id': instance['Endpoint'].get('HostedZoneId')
+                'hosted_zone_id': instance['Endpoint'].get('HostedZoneId'),
             }
         else:
             endpoint = {'address': instance.get('Endpoint')}
-    
+
     return {
         'instance_id': instance.get('DBInstanceIdentifier'),
         'status': instance.get('DBInstanceStatus'),
@@ -454,21 +401,20 @@ def format_instance_info(instance: Dict[str, Any]) -> Dict[str, Any]:
         'storage': {
             'type': instance.get('StorageType'),
             'allocated': instance.get('AllocatedStorage'),
-            'encrypted': instance.get('StorageEncrypted')
+            'encrypted': instance.get('StorageEncrypted'),
         },
         'publicly_accessible': instance.get('PubliclyAccessible', False),
         'vpc_security_groups': [
-            {
-                'id': sg.get('VpcSecurityGroupId'),
-                'status': sg.get('Status')
-            }
+            {'id': sg.get('VpcSecurityGroupId'), 'status': sg.get('Status')}
             for sg in instance.get('VpcSecurityGroups', [])
         ],
         'db_cluster': instance.get('DBClusterIdentifier'),
         'preferred_backup_window': instance.get('PreferredBackupWindow'),
         'preferred_maintenance_window': instance.get('PreferredMaintenanceWindow'),
-        'tags': {tag['Key']: tag['Value'] for tag in instance.get('TagList', [])} if instance.get('TagList') else {},
-        'resource_id': instance.get('DbiResourceId')
+        'tags': {tag['Key']: tag['Value'] for tag in instance.get('TagList', [])}
+        if instance.get('TagList')
+        else {},
+        'resource_id': instance.get('DbiResourceId'),
     }
 
 
@@ -483,7 +429,7 @@ EXPIRATION_TIME = 300  # 5 minutes
 
 def generate_confirmation_token() -> str:
     """Generate a unique confirmation token.
-    
+
     Returns:
         str: A unique confirmation token
     """
@@ -492,11 +438,11 @@ def generate_confirmation_token() -> str:
 
 def add_pending_operation(operation_type: str, params: Dict[str, Any]) -> str:
     """Add a pending operation.
-    
+
     Args:
         operation_type: The type of operation (e.g., 'delete_db_cluster')
         params: The parameters for the operation
-        
+
     Returns:
         str: The confirmation token for the operation
     """
@@ -508,26 +454,26 @@ def add_pending_operation(operation_type: str, params: Dict[str, Any]) -> str:
 
 def get_pending_operation(token: str) -> Optional[tuple]:
     """Get a pending operation by its confirmation token.
-    
+
     Args:
         token: The confirmation token
-        
+
     Returns:
         Optional[tuple]: The operation type, parameters, and expiration time, or None if not found
     """
     # clean up expired operations
     cleanup_expired_operations()
-    
+
     # return the operation if it exists
     return _pending_operations.get(token)
 
 
 def remove_pending_operation(token: str) -> bool:
     """Remove a pending operation.
-    
+
     Args:
         token: The confirmation token
-        
+
     Returns:
         bool: True if the operation was removed, False otherwise
     """
@@ -541,7 +487,8 @@ def cleanup_expired_operations() -> None:
     """Clean up expired operations."""
     current_time = time.time()
     expired_tokens = [
-        token for token, (_, _, expiration_time) in _pending_operations.items()
+        token
+        for token, (_, _, expiration_time) in _pending_operations.items()
         if expiration_time < current_time
     ]
     for token in expired_tokens:

@@ -15,23 +15,22 @@
 """Tool to modify Amazon RDS parameter group parameters."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
 from ...common.decorator import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     check_readonly_mode,
-    format_aws_response,
+    format_rds_api_response,
 )
 from ...constants import (
     ERROR_READONLY_MODE,
     SUCCESS_MODIFIED,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List
+from typing_extensions import Annotated
 
 
 MODIFY_CLUSTER_PARAMETER_GROUP_DESCRIPTION = """Modify parameters in an Amazon RDS DB cluster parameter group.
@@ -58,7 +57,10 @@ async def modify_db_cluster_parameter_group(
         str, Field(description='The name of the DB cluster parameter group to modify')
     ],
     parameters: Annotated[
-        List[Dict[str, Any]], Field(description='List of parameters to modify. Each parameter should include name, value, and optionally apply_method ("immediate" or "pending-reboot")')
+        List[Dict[str, Any]],
+        Field(
+            description='List of parameters to modify. Each parameter should include name, value, and optionally apply_method ("immediate" or "pending-reboot")'
+        ),
     ],
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -75,7 +77,7 @@ async def modify_db_cluster_parameter_group(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
@@ -92,42 +94,50 @@ async def modify_db_cluster_parameter_group(
                 formatted_param['ApplyMethod'] = param.get('apply_method')
             formatted_parameters.append(formatted_param)
 
-        logger.info(f"Modifying DB cluster parameter group {db_cluster_parameter_group_name}")
+        logger.info(f'Modifying DB cluster parameter group {db_cluster_parameter_group_name}')
         response = await asyncio.to_thread(
             rds_client.modify_db_cluster_parameter_group,
             DBClusterParameterGroupName=db_cluster_parameter_group_name,
-            Parameters=formatted_parameters
+            Parameters=formatted_parameters,
         )
-        logger.success(f"Successfully modified parameters in DB cluster parameter group {db_cluster_parameter_group_name}")
-        
+        logger.success(
+            f'Successfully modified parameters in DB cluster parameter group {db_cluster_parameter_group_name}'
+        )
+
         # Get updated parameters for reference
         params_response = await asyncio.to_thread(
             rds_client.describe_db_cluster_parameters,
             DBClusterParameterGroupName=db_cluster_parameter_group_name,
-            MaxRecords=100  # Limit the number of parameters returned
+            MaxRecords=100,  # Limit the number of parameters returned
         )
-        
-        result = format_aws_response(response)
-        
+
+        result = format_rds_api_response(response)
+
         # Format parameters for better readability
         formatted_parameters_list = []
         for param in params_response.get('Parameters', []):
-            formatted_parameters_list.append({
-                'name': param.get('ParameterName'),
-                'value': param.get('ParameterValue'),
-                'description': param.get('Description'),
-                'allowed_values': param.get('AllowedValues'),
-                'source': param.get('Source'),
-                'apply_type': param.get('ApplyType'),
-                'data_type': param.get('DataType'),
-                'is_modifiable': param.get('IsModifiable', False),
-            })
-        
-        result['message'] = SUCCESS_MODIFIED.format(f'parameters in DB cluster parameter group {db_cluster_parameter_group_name}')
+            formatted_parameters_list.append(
+                {
+                    'name': param.get('ParameterName'),
+                    'value': param.get('ParameterValue'),
+                    'description': param.get('Description'),
+                    'allowed_values': param.get('AllowedValues'),
+                    'source': param.get('Source'),
+                    'apply_type': param.get('ApplyType'),
+                    'data_type': param.get('DataType'),
+                    'is_modifiable': param.get('IsModifiable', False),
+                }
+            )
+
+        result['message'] = SUCCESS_MODIFIED.format(
+            f'parameters in DB cluster parameter group {db_cluster_parameter_group_name}'
+        )
         result['parameters_modified'] = len(response.get('Parameters', []))
-        result['formatted_parameters'] = formatted_parameters_list[:10]  # Only show first 10 parameters
+        result['formatted_parameters'] = formatted_parameters_list[
+            :10
+        ]  # Only show first 10 parameters
         result['total_parameters'] = len(formatted_parameters_list)
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception
@@ -158,7 +168,10 @@ async def modify_db_instance_parameter_group(
         str, Field(description='The name of the DB instance parameter group to modify')
     ],
     parameters: Annotated[
-        List[Dict[str, Any]], Field(description='List of parameters to modify. Each parameter should include name, value, and optionally apply_method ("immediate" or "pending-reboot")')
+        List[Dict[str, Any]],
+        Field(
+            description='List of parameters to modify. Each parameter should include name, value, and optionally apply_method ("immediate" or "pending-reboot")'
+        ),
     ],
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -175,7 +188,7 @@ async def modify_db_instance_parameter_group(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
+
     # Check if server is in readonly mode
     if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
         return {'error': ERROR_READONLY_MODE}
@@ -192,42 +205,50 @@ async def modify_db_instance_parameter_group(
                 formatted_param['ApplyMethod'] = param.get('apply_method')
             formatted_parameters.append(formatted_param)
 
-        logger.info(f"Modifying DB instance parameter group {db_parameter_group_name}")
+        logger.info(f'Modifying DB instance parameter group {db_parameter_group_name}')
         response = await asyncio.to_thread(
             rds_client.modify_db_parameter_group,
             DBParameterGroupName=db_parameter_group_name,
-            Parameters=formatted_parameters
+            Parameters=formatted_parameters,
         )
-        logger.success(f"Successfully modified parameters in DB instance parameter group {db_parameter_group_name}")
-        
+        logger.success(
+            f'Successfully modified parameters in DB instance parameter group {db_parameter_group_name}'
+        )
+
         # Get updated parameters for reference
         params_response = await asyncio.to_thread(
             rds_client.describe_db_parameters,
             DBParameterGroupName=db_parameter_group_name,
-            MaxRecords=100  # Limit the number of parameters returned
+            MaxRecords=100,  # Limit the number of parameters returned
         )
-        
-        result = format_aws_response(response)
-        
+
+        result = format_rds_api_response(response)
+
         # Format parameters for better readability
         formatted_parameters_list = []
         for param in params_response.get('Parameters', []):
-            formatted_parameters_list.append({
-                'name': param.get('ParameterName'),
-                'value': param.get('ParameterValue'),
-                'description': param.get('Description'),
-                'allowed_values': param.get('AllowedValues'),
-                'source': param.get('Source'),
-                'apply_type': param.get('ApplyType'),
-                'data_type': param.get('DataType'),
-                'is_modifiable': param.get('IsModifiable', False),
-            })
-        
-        result['message'] = SUCCESS_MODIFIED.format(f'parameters in DB instance parameter group {db_parameter_group_name}')
+            formatted_parameters_list.append(
+                {
+                    'name': param.get('ParameterName'),
+                    'value': param.get('ParameterValue'),
+                    'description': param.get('Description'),
+                    'allowed_values': param.get('AllowedValues'),
+                    'source': param.get('Source'),
+                    'apply_type': param.get('ApplyType'),
+                    'data_type': param.get('DataType'),
+                    'is_modifiable': param.get('IsModifiable', False),
+                }
+            )
+
+        result['message'] = SUCCESS_MODIFIED.format(
+            f'parameters in DB instance parameter group {db_parameter_group_name}'
+        )
         result['parameters_modified'] = len(response.get('Parameters', []))
-        result['formatted_parameters'] = formatted_parameters_list[:10]  # Only show first 10 parameters
+        result['formatted_parameters'] = formatted_parameters_list[
+            :10
+        ]  # Only show first 10 parameters
         result['total_parameters'] = len(formatted_parameters_list)
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

@@ -15,28 +15,23 @@
 """Tool to create a new Amazon RDS database cluster."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
-from loguru import logger
-from mcp.server.fastmcp import Context
-from pydantic import Field
-from typing_extensions import Annotated
-
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorator import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
-    check_readonly_mode,
-    format_aws_response,
     format_cluster_info,
-    get_engine_port,
-    validate_db_identifier,
+    format_rds_api_response,
 )
 from ...constants import (
-    ERROR_INVALID_PARAMS,
-    ERROR_READONLY_MODE,
+    ENGINE_PORT_MAP,
     SUCCESS_CREATED,
 )
+from loguru import logger
+from mcp.server.fastmcp import Context
+from pydantic import Field
+from typing import Any, Dict, List, Optional
+from typing_extensions import Annotated
 
 
 CREATE_CLUSTER_TOOL_DESCRIPTION = """Create a new Amazon RDS database cluster.
@@ -92,36 +87,49 @@ Example usage scenarios:
     description=CREATE_CLUSTER_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def create_db_cluster(
-    db_cluster_identifier: Annotated[
-        str, Field(description='The identifier for the DB cluster')
-    ],
+    db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     engine: Annotated[
-        str, Field(description='The name of the database engine to be used for this DB cluster (e.g., aurora, aurora-mysql, aurora-postgresql, mysql, postgres, mariadb, oracle, sqlserver)')
+        str,
+        Field(
+            description='The name of the database engine to be used for this DB cluster (e.g., aurora, aurora-mysql, aurora-postgresql, mysql, postgres, mariadb, oracle, sqlserver)'
+        ),
     ],
     master_username: Annotated[
         str, Field(description='The name of the master user for the DB cluster')
     ],
     manage_master_user_password: Annotated[
-        Optional[bool], Field(description='Specifies whether to manage the master user password with Amazon Web Services Secrets Manager')
+        Optional[bool],
+        Field(
+            description='Specifies whether to manage the master user password with Amazon Web Services Secrets Manager'
+        ),
     ] = True,
     database_name: Annotated[
         Optional[str], Field(description='The name for your database')
     ] = None,
     vpc_security_group_ids: Annotated[
-        Optional[List[str]], Field(description='A list of EC2 VPC security groups to associate with this DB cluster')
+        Optional[List[str]],
+        Field(description='A list of EC2 VPC security groups to associate with this DB cluster'),
     ] = None,
     db_subnet_group_name: Annotated[
         Optional[str], Field(description='A DB subnet group to associate with this DB cluster')
     ] = None,
     availability_zones: Annotated[
-        Optional[List[str]], Field(description='A list of Availability Zones (AZs) where instances in the DB cluster can be created')
+        Optional[List[str]],
+        Field(
+            description='A list of Availability Zones (AZs) where instances in the DB cluster can be created'
+        ),
     ] = None,
     backup_retention_period: Annotated[
-        Optional[int], Field(description='The number of days for which automated backups are retained')
+        Optional[int],
+        Field(description='The number of days for which automated backups are retained'),
     ] = None,
     port: Annotated[
-        Optional[int], Field(description='The port number on which the instances in the DB cluster accept connections')
+        Optional[int],
+        Field(
+            description='The port number on which the instances in the DB cluster accept connections'
+        ),
     ] = None,
     engine_version: Annotated[
         Optional[str], Field(description='The version number of the database engine to use')
@@ -149,17 +157,6 @@ async def create_db_cluster(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
-    # Check if server is in readonly mode
-    if not check_readonly_mode('create', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # validate identifier
-    if not validate_db_identifier(db_cluster_identifier):
-        error_msg = ERROR_INVALID_PARAMS.format('db_cluster_identifier must be 1-63 characters, begin with a letter, and contain only alphanumeric characters and hyphens')
-        if ctx:
-            await ctx.error(error_msg)
-        return {'error': error_msg}
 
     try:
         params = {
@@ -183,21 +180,22 @@ async def create_db_cluster(
         if port is not None:
             params['Port'] = port
         else:
-            params['Port'] = get_engine_port(engine)
+            engine_lower = engine.lower()
+            params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
         if engine_version:
             params['EngineVersion'] = engine_version
 
         # MCP tags
         params = add_mcp_tags(params)
 
-        logger.info(f"Creating DB cluster {db_cluster_identifier} with engine {engine}")
+        logger.info(f'Creating DB cluster {db_cluster_identifier} with engine {engine}')
         response = await asyncio.to_thread(rds_client.create_db_cluster, **params)
-        logger.success(f"Successfully created DB cluster {db_cluster_identifier}")
-        
-        result = format_aws_response(response)
+        logger.success(f'Successfully created DB cluster {db_cluster_identifier}')
+
+        result = format_rds_api_response(response)
         result['message'] = SUCCESS_CREATED.format(f'DB cluster {db_cluster_identifier}')
         result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

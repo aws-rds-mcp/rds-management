@@ -15,24 +15,20 @@
 """Tool to delete a snapshot of an Amazon RDS DB cluster."""
 
 import asyncio
-import secrets
-from typing import Any, Dict, Optional
+from ...common.connection import RDSConnectionManager
+from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
+from ...common.server import mcp
+from ...common.utils import (
+    format_rds_api_response,
+)
+from ...constants import (
+    SUCCESS_DELETED,
+)
 from loguru import logger
 from mcp.server.fastmcp import Context
 from pydantic import Field
+from typing import Any, Dict, Optional
 from typing_extensions import Annotated
-
-from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
-from ...common.server import mcp
-from ...common.utils import (
-    check_readonly_mode,
-    format_aws_response,
-)
-from ...constants import (
-    ERROR_READONLY_MODE,
-    SUCCESS_DELETED,
-)
 
 
 DELETE_SNAPSHOT_TOOL_DESCRIPTION = """Delete a snapshot of an Amazon RDS database cluster.
@@ -51,6 +47,8 @@ Once a snapshot is deleted, it cannot be recovered.
     description=DELETE_SNAPSHOT_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
+@require_confirmation('delete_db_cluster_snapshot')
 async def delete_db_cluster_snapshot(
     db_cluster_snapshot_identifier: Annotated[
         str, Field(description='The identifier for the DB cluster snapshot to delete')
@@ -72,44 +70,33 @@ async def delete_db_cluster_snapshot(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
-    # Check if server is in readonly mode
-    if not check_readonly_mode('delete', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
-    # If no confirmation token provided, request confirmation
-    if not confirmation_token:
-        # Generate a random token for confirmation
-        token = secrets.token_hex(8)
-        
-        return {
-            'requires_confirmation': True,
-            'warning': f'You are about to delete snapshot {db_cluster_snapshot_identifier}. This operation cannot be undone.',
-            'impact': 'Deleting this snapshot will permanently remove it and prevent any future restore operations using this snapshot.',
-            'confirmation_token': token,
-            'message': f'To confirm deletion, please provide this token as confirmation_token: {token}',
-        }
-    
     try:
-        logger.info(f"Deleting DB cluster snapshot {db_cluster_snapshot_identifier}")
+        logger.info(f'Deleting DB cluster snapshot {db_cluster_snapshot_identifier}')
         response = await asyncio.to_thread(
             rds_client.delete_db_cluster_snapshot,
-            DBClusterSnapshotIdentifier=db_cluster_snapshot_identifier
+            DBClusterSnapshotIdentifier=db_cluster_snapshot_identifier,
         )
-        logger.success(f"Successfully deleted DB cluster snapshot {db_cluster_snapshot_identifier}")
-        
+        logger.success(
+            f'Successfully deleted DB cluster snapshot {db_cluster_snapshot_identifier}'
+        )
+
         # Format the response
-        result = format_aws_response(response)
+        result = format_rds_api_response(response)
         formatted_snapshot = {
-            'snapshot_id': response.get('DBClusterSnapshot', {}).get('DBClusterSnapshotIdentifier'),
+            'snapshot_id': response.get('DBClusterSnapshot', {}).get(
+                'DBClusterSnapshotIdentifier'
+            ),
             'cluster_id': response.get('DBClusterSnapshot', {}).get('DBClusterIdentifier'),
             'status': response.get('DBClusterSnapshot', {}).get('Status'),
             'deletion_time': response.get('DBClusterSnapshot', {}).get('SnapshotCreateTime'),
         }
-        
-        result['message'] = SUCCESS_DELETED.format(f'DB cluster snapshot {db_cluster_snapshot_identifier}')
+
+        result['message'] = SUCCESS_DELETED.format(
+            f'DB cluster snapshot {db_cluster_snapshot_identifier}'
+        )
         result['formatted_snapshot'] = formatted_snapshot
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception

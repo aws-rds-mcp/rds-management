@@ -15,24 +15,21 @@
 """Tool to create a snapshot of an Amazon RDS DB cluster."""
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from ...common.connection import RDSConnectionManager
+from ...common.decorator import handle_exceptions, readonly_check
+from ...common.server import mcp
+from ...common.utils import (
+    add_mcp_tags,
+    format_rds_api_response,
+)
+from ...constants import (
+    SUCCESS_CREATED,
+)
 from loguru import logger
 from mcp.server.fastmcp import Context
 from pydantic import Field
+from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
-
-from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
-from ...common.server import mcp
-from ...common.utils import (
-    check_readonly_mode,
-    format_aws_response,
-    add_mcp_tags,
-)
-from ...constants import (
-    ERROR_READONLY_MODE,
-    SUCCESS_CREATED,
-)
 
 
 CREATE_SNAPSHOT_TOOL_DESCRIPTION = """Create a snapshot of an Amazon RDS database cluster.
@@ -51,6 +48,7 @@ Creating snapshots may temporarily affect database performance.
     description=CREATE_SNAPSHOT_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def create_db_cluster_snapshot(
     db_cluster_snapshot_identifier: Annotated[
         str, Field(description='The identifier for the DB cluster snapshot')
@@ -59,7 +57,8 @@ async def create_db_cluster_snapshot(
         str, Field(description='The identifier of the DB cluster to create a snapshot for')
     ],
     tags: Annotated[
-        Optional[List[Dict[str, str]]], Field(description='Optional list of tags to apply to the snapshot')
+        Optional[List[Dict[str, str]]],
+        Field(description='Optional list of tags to apply to the snapshot'),
     ] = None,
     ctx: Context = None,
 ) -> Dict[str, Any]:
@@ -76,17 +75,13 @@ async def create_db_cluster_snapshot(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-    
-    # Check if server is in readonly mode
-    if not check_readonly_mode('create', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     try:
         kwargs = {
             'DBClusterSnapshotIdentifier': db_cluster_snapshot_identifier,
             'DBClusterIdentifier': db_cluster_identifier,
         }
-        
+
         # Add MCP tags and any user-provided tags
         if tags:
             # Format tags for AWS API
@@ -95,28 +90,36 @@ async def create_db_cluster_snapshot(
                 for key, value in tag_item.items():
                     aws_tags.append({'Key': key, 'Value': value})
             kwargs['Tags'] = aws_tags
-        
+
         # Add MCP tags
         kwargs = add_mcp_tags(kwargs)
-        
-        logger.info(f"Creating DB cluster snapshot {db_cluster_snapshot_identifier} for cluster {db_cluster_identifier}")
+
+        logger.info(
+            f'Creating DB cluster snapshot {db_cluster_snapshot_identifier} for cluster {db_cluster_identifier}'
+        )
         response = await asyncio.to_thread(rds_client.create_db_cluster_snapshot, **kwargs)
-        logger.success(f"Successfully created DB cluster snapshot {db_cluster_snapshot_identifier}")
-        
+        logger.success(
+            f'Successfully created DB cluster snapshot {db_cluster_snapshot_identifier}'
+        )
+
         # Format the response
-        result = format_aws_response(response)
+        result = format_rds_api_response(response)
         formatted_snapshot = {
-            "snapshot_id": response.get("DBClusterSnapshot", {}).get("DBClusterSnapshotIdentifier"),
-            "cluster_id": response.get("DBClusterSnapshot", {}).get("DBClusterIdentifier"),
-            "status": response.get("DBClusterSnapshot", {}).get("Status"),
-            "creation_time": response.get("DBClusterSnapshot", {}).get("SnapshotCreateTime"),
-            "engine": response.get("DBClusterSnapshot", {}).get("Engine"),
-            "engine_version": response.get("DBClusterSnapshot", {}).get("EngineVersion"),
+            'snapshot_id': response.get('DBClusterSnapshot', {}).get(
+                'DBClusterSnapshotIdentifier'
+            ),
+            'cluster_id': response.get('DBClusterSnapshot', {}).get('DBClusterIdentifier'),
+            'status': response.get('DBClusterSnapshot', {}).get('Status'),
+            'creation_time': response.get('DBClusterSnapshot', {}).get('SnapshotCreateTime'),
+            'engine': response.get('DBClusterSnapshot', {}).get('Engine'),
+            'engine_version': response.get('DBClusterSnapshot', {}).get('EngineVersion'),
         }
-        
-        result['message'] = SUCCESS_CREATED.format(f'DB cluster snapshot {db_cluster_snapshot_identifier}')
+
+        result['message'] = SUCCESS_CREATED.format(
+            f'DB cluster snapshot {db_cluster_snapshot_identifier}'
+        )
         result['formatted_snapshot'] = formatted_snapshot
-        
+
         return result
     except Exception as e:
         # The decorator will handle the exception
