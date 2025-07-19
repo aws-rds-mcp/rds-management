@@ -16,11 +16,10 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...models import ParameterGroupListModel, ParameterGroupModel, ParameterModel
 from loguru import logger
-from typing import List
 
 
 LIST_CLUSTER_PARAMETER_GROUPS_DESCRIPTION = """List all DB cluster parameter groups in your AWS account.
@@ -56,7 +55,7 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
 
     # Get parameter groups
     response = await asyncio.to_thread(rds_client.describe_db_cluster_parameter_groups)
-    
+
     parameter_groups = []
     for pg in response.get('DBClusterParameterGroups', []):
         # Get a sample of parameters for each group
@@ -64,9 +63,9 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
             params_response = await asyncio.to_thread(
                 rds_client.describe_db_cluster_parameters,
                 DBClusterParameterGroupName=pg.get('DBClusterParameterGroupName'),
-                MaxRecords=20  # Limit to 20 parameters for performance
+                MaxRecords=20,  # Limit to 20 parameters for performance
             )
-            
+
             parameters = []
             for param in params_response.get('Parameters', []):
                 parameters.append(
@@ -82,14 +81,16 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
                     )
                 )
         except Exception as e:
-            logger.error(f"Error getting parameters for group {pg.get('DBClusterParameterGroupName')}: {str(e)}")
+            logger.error(
+                f'Error getting parameters for group {pg.get("DBClusterParameterGroupName")}: {str(e)}'
+            )
             parameters = []
-        
+
         # Extract tags
         tags = {}
-        if "Tags" in pg:
-            tags = {tag.get("Key"): tag.get("Value") for tag in pg.get("Tags", [])}
-        
+        if 'Tags' in pg:
+            tags = {tag.get('Key'): tag.get('Value') for tag in pg.get('Tags', [])}
+
         # Create parameter group model
         parameter_groups.append(
             ParameterGroupModel(
@@ -100,7 +101,7 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
                 parameters=parameters,
                 arn=pg.get('DBClusterParameterGroupArn'),
                 tags=tags,
-                resource_uri=f"aws-rds://db-cluster/parameter-groups/{pg.get('DBClusterParameterGroupName')}",
+                resource_uri=f'aws-rds://db-cluster/parameter-groups/{pg.get("DBClusterParameterGroupName")}',
             )
         )
 
@@ -108,19 +109,18 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
     marker = response.get('Marker')
     while marker:
         response = await asyncio.to_thread(
-            rds_client.describe_db_cluster_parameter_groups,
-            Marker=marker
+            rds_client.describe_db_cluster_parameter_groups, Marker=marker
         )
-        
+
         for pg in response.get('DBClusterParameterGroups', []):
             # Get a sample of parameters for each group
             try:
                 params_response = await asyncio.to_thread(
                     rds_client.describe_db_cluster_parameters,
                     DBClusterParameterGroupName=pg.get('DBClusterParameterGroupName'),
-                    MaxRecords=20  # Limit to 20 parameters for performance
+                    MaxRecords=20,  # Limit to 20 parameters for performance
                 )
-                
+
                 parameters = []
                 for param in params_response.get('Parameters', []):
                     parameters.append(
@@ -136,14 +136,16 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
                         )
                     )
             except Exception as e:
-                logger.error(f"Error getting parameters for group {pg.get('DBClusterParameterGroupName')}: {str(e)}")
+                logger.error(
+                    f'Error getting parameters for group {pg.get("DBClusterParameterGroupName")}: {str(e)}'
+                )
                 parameters = []
-            
+
             # Extract tags
             tags = {}
-            if "Tags" in pg:
-                tags = {tag.get("Key"): tag.get("Value") for tag in pg.get("Tags", [])}
-            
+            if 'Tags' in pg:
+                tags = {tag.get('Key'): tag.get('Value') for tag in pg.get('Tags', [])}
+
             # Create parameter group model
             parameter_groups.append(
                 ParameterGroupModel(
@@ -154,10 +156,10 @@ async def list_cluster_parameter_groups() -> ParameterGroupListModel:
                     parameters=parameters,
                     arn=pg.get('DBClusterParameterGroupArn'),
                     tags=tags,
-                    resource_uri=f"aws-rds://db-cluster/parameter-groups/{pg.get('DBClusterParameterGroupName')}",
+                    resource_uri=f'aws-rds://db-cluster/parameter-groups/{pg.get("DBClusterParameterGroupName")}',
                 )
             )
-            
+
         marker = response.get('Marker')
 
     return ParameterGroupListModel(
@@ -200,7 +202,7 @@ async def list_instance_parameter_groups() -> ParameterGroupListModel:
 
     # Get parameter groups
     response = await asyncio.to_thread(rds_client.describe_db_parameter_groups)
-    
+
     parameter_groups = []
     for pg in response.get('DBParameterGroups', []):
         # Get a sample of parameters for each group
@@ -208,9 +210,9 @@ async def list_instance_parameter_groups() -> ParameterGroupListModel:
             params_response = await asyncio.to_thread(
                 rds_client.describe_db_parameters,
                 DBParameterGroupName=pg.get('DBParameterGroupName'),
-                MaxRecords=20  # Limit to 20 parameters for performance
+                MaxRecords=20,  # Limit to 20 parameters for performance
             )
-            
+
             parameters = []
             for param in params_response.get('Parameters', []):
                 parameters.append(
@@ -226,14 +228,16 @@ async def list_instance_parameter_groups() -> ParameterGroupListModel:
                     )
                 )
         except Exception as e:
-            logger.error(f"Error getting parameters for group {pg.get('DBParameterGroupName')}: {str(e)}")
+            logger.error(
+                f'Error getting parameters for group {pg.get("DBParameterGroupName")}: {str(e)}'
+            )
             parameters = []
-        
+
         # Extract tags
         tags = {}
-        if "Tags" in pg:
-            tags = {tag.get("Key"): tag.get("Value") for tag in pg.get("Tags", [])}
-        
+        if 'Tags' in pg:
+            tags = {tag.get('Key'): tag.get('Value') for tag in pg.get('Tags', [])}
+
         # Create parameter group model
         parameter_groups.append(
             ParameterGroupModel(
@@ -244,27 +248,24 @@ async def list_instance_parameter_groups() -> ParameterGroupListModel:
                 parameters=parameters,
                 arn=pg.get('DBParameterGroupArn'),
                 tags=tags,
-                resource_uri=f"aws-rds://db-instance/parameter-groups/{pg.get('DBParameterGroupName')}",
+                resource_uri=f'aws-rds://db-instance/parameter-groups/{pg.get("DBParameterGroupName")}',
             )
         )
 
     # Pagination handling
     marker = response.get('Marker')
     while marker:
-        response = await asyncio.to_thread(
-            rds_client.describe_db_parameter_groups,
-            Marker=marker
-        )
-        
+        response = await asyncio.to_thread(rds_client.describe_db_parameter_groups, Marker=marker)
+
         for pg in response.get('DBParameterGroups', []):
             # Get a sample of parameters for each group
             try:
                 params_response = await asyncio.to_thread(
                     rds_client.describe_db_parameters,
                     DBParameterGroupName=pg.get('DBParameterGroupName'),
-                    MaxRecords=20  # Limit to 20 parameters for performance
+                    MaxRecords=20,  # Limit to 20 parameters for performance
                 )
-                
+
                 parameters = []
                 for param in params_response.get('Parameters', []):
                     parameters.append(
@@ -280,14 +281,16 @@ async def list_instance_parameter_groups() -> ParameterGroupListModel:
                         )
                     )
             except Exception as e:
-                logger.error(f"Error getting parameters for group {pg.get('DBParameterGroupName')}: {str(e)}")
+                logger.error(
+                    f'Error getting parameters for group {pg.get("DBParameterGroupName")}: {str(e)}'
+                )
                 parameters = []
-            
+
             # Extract tags
             tags = {}
-            if "Tags" in pg:
-                tags = {tag.get("Key"): tag.get("Value") for tag in pg.get("Tags", [])}
-            
+            if 'Tags' in pg:
+                tags = {tag.get('Key'): tag.get('Value') for tag in pg.get('Tags', [])}
+
             # Create parameter group model
             parameter_groups.append(
                 ParameterGroupModel(
@@ -298,10 +301,10 @@ async def list_instance_parameter_groups() -> ParameterGroupListModel:
                     parameters=parameters,
                     arn=pg.get('DBParameterGroupArn'),
                     tags=tags,
-                    resource_uri=f"aws-rds://db-instance/parameter-groups/{pg.get('DBParameterGroupName')}",
+                    resource_uri=f'aws-rds://db-instance/parameter-groups/{pg.get("DBParameterGroupName")}',
                 )
             )
-            
+
         marker = response.get('Marker')
 
     return ParameterGroupListModel(

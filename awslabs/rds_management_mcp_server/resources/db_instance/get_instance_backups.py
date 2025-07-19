@@ -15,12 +15,11 @@
 """Resource for getting backup information for RDS DB Instances."""
 
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...models import AutomatedBackupModel, BackupListModel, SnapshotModel
 from loguru import logger
 from pydantic import Field
-from typing import Dict, Optional
 from typing_extensions import Annotated
 
 
@@ -47,7 +46,7 @@ This includes both manual snapshots and automated backups.
 )
 @handle_exceptions
 async def get_instance_backups(
-    instance_id: Annotated[str, Field(description='The instance identifier')]
+    instance_id: Annotated[str, Field(description='The instance identifier')],
 ) -> BackupListModel:
     """Get all backups for a specific DB instance.
 
@@ -66,49 +65,51 @@ async def get_instance_backups(
         auto_backups_response = rds_client.describe_db_instance_automated_backups(
             DBInstanceIdentifier=instance_id
         )
-        
+
         for backup in auto_backups_response.get('DBInstanceAutomatedBackups', []):
-            automated_backups.append(AutomatedBackupModel(
-                backup_id=backup.get('DBInstanceAutomatedBackupsArn'),
-                cluster_id=backup.get('DBInstanceIdentifier'),  # Using instance ID here
-                earliest_time=backup.get('RestorableTime'),
-                latest_time=backup.get('LatestRestorableTime'),
-                status=backup.get('Status'),
-                engine=backup.get('Engine'),
-                engine_version=backup.get('EngineVersion'),
-                resource_uri=f'aws-rds://db-instance/{instance_id}/backups',
-            ))
+            automated_backups.append(
+                AutomatedBackupModel(
+                    backup_id=backup.get('DBInstanceAutomatedBackupsArn'),
+                    cluster_id=backup.get('DBInstanceIdentifier'),  # Using instance ID here
+                    earliest_time=backup.get('RestorableTime'),
+                    latest_time=backup.get('LatestRestorableTime'),
+                    status=backup.get('Status'),
+                    engine=backup.get('Engine'),
+                    engine_version=backup.get('EngineVersion'),
+                    resource_uri=f'aws-rds://db-instance/{instance_id}/backups',
+                )
+            )
     except Exception as e:
         logger.error(f'Error fetching automated backups for instance {instance_id}: {e}')
-    
+
     # Get snapshots
     snapshots = []
     try:
-        snapshots_response = rds_client.describe_db_snapshots(
-            DBInstanceIdentifier=instance_id
-        )
-        
+        snapshots_response = rds_client.describe_db_snapshots(DBInstanceIdentifier=instance_id)
+
         for snapshot in snapshots_response.get('DBSnapshots', []):
             # Convert tags from AWS format to dict
             tags = {}
             for tag in snapshot.get('TagList', []):
                 tags[tag.get('Key')] = tag.get('Value')
-            
-            snapshots.append(SnapshotModel(
-                snapshot_id=snapshot.get('DBSnapshotIdentifier'),
-                cluster_id=snapshot.get('DBInstanceIdentifier'),  # Using instance ID here
-                creation_time=snapshot.get('SnapshotCreateTime'),
-                status=snapshot.get('Status'),
-                engine=snapshot.get('Engine'),
-                engine_version=snapshot.get('EngineVersion'),
-                port=snapshot.get('Port'),
-                vpc_id=snapshot.get('VpcId'),
-                tags=tags,
-                resource_uri=f'aws-rds://db-instance/{instance_id}/backups',
-            ))
+
+            snapshots.append(
+                SnapshotModel(
+                    snapshot_id=snapshot.get('DBSnapshotIdentifier'),
+                    cluster_id=snapshot.get('DBInstanceIdentifier'),  # Using instance ID here
+                    creation_time=snapshot.get('SnapshotCreateTime'),
+                    status=snapshot.get('Status'),
+                    engine=snapshot.get('Engine'),
+                    engine_version=snapshot.get('EngineVersion'),
+                    port=snapshot.get('Port'),
+                    vpc_id=snapshot.get('VpcId'),
+                    tags=tags,
+                    resource_uri=f'aws-rds://db-instance/{instance_id}/backups',
+                )
+            )
     except Exception as e:
         logger.error(f'Error fetching snapshots for instance {instance_id}: {e}')
-    
+
     # Create the combined backup list model
     backup_list = BackupListModel(
         snapshots=snapshots,
@@ -116,7 +117,7 @@ async def get_instance_backups(
         count=len(snapshots) + len(automated_backups),
         resource_uri=f'aws-rds://db-instance/{instance_id}/backups',
     )
-    
+
     return backup_list
 
 
@@ -155,57 +156,61 @@ async def get_all_instance_backups() -> BackupListModel:
     instances_response = rds_client.describe_db_instances()
     all_snapshots = []
     all_automated_backups = []
-    
+
     # For each instance, get its backups
     for instance in instances_response.get('DBInstances', []):
         instance_id = instance.get('DBInstanceIdentifier')
-        
+
         # Get automated backups
         try:
             auto_backups_response = rds_client.describe_db_instance_automated_backups()
-            
+
             for backup in auto_backups_response.get('DBInstanceAutomatedBackups', []):
                 if backup.get('DBInstanceIdentifier') == instance_id:
-                    all_automated_backups.append(AutomatedBackupModel(
-                        backup_id=backup.get('DBInstanceAutomatedBackupsArn'),
-                        cluster_id=backup.get('DBInstanceIdentifier'),  # Using instance ID here
-                        earliest_time=backup.get('RestorableTime'),
-                        latest_time=backup.get('LatestRestorableTime'),
-                        status=backup.get('Status'),
-                        engine=backup.get('Engine'),
-                        engine_version=backup.get('EngineVersion'),
-                        resource_uri='aws-rds://db-instance/backups',
-                    ))
+                    all_automated_backups.append(
+                        AutomatedBackupModel(
+                            backup_id=backup.get('DBInstanceAutomatedBackupsArn'),
+                            cluster_id=backup.get(
+                                'DBInstanceIdentifier'
+                            ),  # Using instance ID here
+                            earliest_time=backup.get('RestorableTime'),
+                            latest_time=backup.get('LatestRestorableTime'),
+                            status=backup.get('Status'),
+                            engine=backup.get('Engine'),
+                            engine_version=backup.get('EngineVersion'),
+                            resource_uri='aws-rds://db-instance/backups',
+                        )
+                    )
         except Exception as e:
             logger.error(f'Error fetching automated backups for instance {instance_id}: {e}')
-        
+
         # Get snapshots
         try:
-            snapshots_response = rds_client.describe_db_snapshots(
-                DBInstanceIdentifier=instance_id
-            )
-            
+            snapshots_response = rds_client.describe_db_snapshots(DBInstanceIdentifier=instance_id)
+
             for snapshot in snapshots_response.get('DBSnapshots', []):
                 # Convert tags from AWS format to dict
                 tags = {}
                 for tag in snapshot.get('TagList', []):
                     tags[tag.get('Key')] = tag.get('Value')
-                
-                all_snapshots.append(SnapshotModel(
-                    snapshot_id=snapshot.get('DBSnapshotIdentifier'),
-                    cluster_id=snapshot.get('DBInstanceIdentifier'),  # Using instance ID here
-                    creation_time=snapshot.get('SnapshotCreateTime'),
-                    status=snapshot.get('Status'),
-                    engine=snapshot.get('Engine'),
-                    engine_version=snapshot.get('EngineVersion'),
-                    port=snapshot.get('Port'),
-                    vpc_id=snapshot.get('VpcId'),
-                    tags=tags,
-                    resource_uri='aws-rds://db-instance/backups',
-                ))
+
+                all_snapshots.append(
+                    SnapshotModel(
+                        snapshot_id=snapshot.get('DBSnapshotIdentifier'),
+                        cluster_id=snapshot.get('DBInstanceIdentifier'),  # Using instance ID here
+                        creation_time=snapshot.get('SnapshotCreateTime'),
+                        status=snapshot.get('Status'),
+                        engine=snapshot.get('Engine'),
+                        engine_version=snapshot.get('EngineVersion'),
+                        port=snapshot.get('Port'),
+                        vpc_id=snapshot.get('VpcId'),
+                        tags=tags,
+                        resource_uri='aws-rds://db-instance/backups',
+                    )
+                )
         except Exception as e:
             logger.error(f'Error fetching snapshots for instance {instance_id}: {e}')
-    
+
     # Create the combined backup list model
     backup_list = BackupListModel(
         snapshots=all_snapshots,
@@ -213,5 +218,5 @@ async def get_all_instance_backups() -> BackupListModel:
         count=len(all_snapshots) + len(all_automated_backups),
         resource_uri='aws-rds://db-instance/backups',
     )
-    
+
     return backup_list

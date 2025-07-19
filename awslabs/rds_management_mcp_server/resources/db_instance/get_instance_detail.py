@@ -15,13 +15,11 @@
 """Resource for getting detailed information about a specific RDS DB Instance."""
 
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
-from ...common.utils import convert_datetime_to_string
-from ...models import InstanceModel, InstanceEndpoint, InstanceStorage, VpcSecurityGroup
+from ...models import InstanceEndpoint, InstanceModel, InstanceStorage, VpcSecurityGroup
 from loguru import logger
 from pydantic import Field
-from typing import Dict, List, Optional
 from typing_extensions import Annotated
 
 
@@ -64,14 +62,14 @@ Returns a JSON document containing detailed instance information:
 
 
 @mcp.resource(
-    uri=f'aws-rds://db-instance/{{instance_id}}',
+    uri='aws-rds://db-instance/{instance_id}',
     name='GetDBInstanceDetail',
     description=GET_INSTANCE_DETAIL_RESOURCE_DESCRIPTION,
     mime_type='application/json',
 )
 @handle_exceptions
 async def get_instance_detail(
-    instance_id: Annotated[str, Field(description='The instance identifier')]
+    instance_id: Annotated[str, Field(description='The instance identifier')],
 ) -> InstanceModel:
     """Get detailed information about a specific RDS instance.
 
@@ -95,7 +93,7 @@ async def get_instance_detail(
         raise ValueError(f'DB instance {instance_id} not found')
 
     instance_data = instances[0]
-    
+
     # Format endpoint
     endpoint = InstanceEndpoint()
     if instance_data.get('Endpoint'):
@@ -103,7 +101,7 @@ async def get_instance_detail(
             endpoint = InstanceEndpoint(
                 address=instance_data['Endpoint'].get('Address'),
                 port=instance_data['Endpoint'].get('Port'),
-                hosted_zone_id=instance_data['Endpoint'].get('HostedZoneId')
+                hosted_zone_id=instance_data['Endpoint'].get('HostedZoneId'),
             )
         else:
             endpoint = InstanceEndpoint(address=instance_data.get('Endpoint'))
@@ -112,7 +110,7 @@ async def get_instance_detail(
     storage = InstanceStorage(
         type=instance_data.get('StorageType'),
         allocated=instance_data.get('AllocatedStorage'),
-        encrypted=instance_data.get('StorageEncrypted')
+        encrypted=instance_data.get('StorageEncrypted'),
     )
 
     # Format VPC security groups
@@ -147,7 +145,7 @@ async def get_instance_detail(
         db_cluster=instance_data.get('DBClusterIdentifier'),
         tags=tags,
         dbi_resource_id=instance_data.get('DbiResourceId'),
-        resource_uri=f'aws-rds://db-instance/{instance_id}'
+        resource_uri=f'aws-rds://db-instance/{instance_id}',
     )
 
     return instance

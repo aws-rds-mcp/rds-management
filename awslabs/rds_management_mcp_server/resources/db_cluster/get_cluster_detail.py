@@ -15,13 +15,12 @@
 """Resource for getting detailed information about a specific RDS DB Cluster."""
 
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import convert_datetime_to_string
-from ...models import ClusterModel, ClusterMember, VpcSecurityGroup
+from ...models import ClusterMember, ClusterModel, VpcSecurityGroup
 from loguru import logger
 from pydantic import Field
-from typing import Dict, List, Optional
 from typing_extensions import Annotated
 
 
@@ -63,7 +62,7 @@ Returns a JSON document containing detailed cluster information:
 )
 @handle_exceptions
 async def get_cluster_detail(
-    cluster_id: Annotated[str, Field(description='The cluster identifier')]
+    cluster_id: Annotated[str, Field(description='The cluster identifier')],
 ) -> ClusterModel:
     """Get detailed information about a specific RDS cluster.
 
@@ -87,7 +86,7 @@ async def get_cluster_detail(
         raise ValueError(f'DB cluster {cluster_id} not found')
 
     cluster_data = clusters[0]
-    
+
     # Format cluster members
     members = []
     for member in cluster_data.get('DBClusterMembers', []):
@@ -129,7 +128,7 @@ async def get_cluster_detail(
         members=members,
         vpc_security_groups=vpc_security_groups,
         tags=tags,
-        resource_uri=f'aws-rds://db-cluster/{cluster_id}'
+        resource_uri=f'aws-rds://db-cluster/{cluster_id}',
     )
 
     return cluster
