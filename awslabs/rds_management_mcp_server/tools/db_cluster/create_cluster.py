@@ -158,45 +158,41 @@ async def create_db_cluster(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        params = {
-            'DBClusterIdentifier': db_cluster_identifier,
-            'Engine': engine,
-            'MasterUsername': master_username,
-            'ManageMasterUserPassword': manage_master_user_password,
-        }
+    params = {
+        'DBClusterIdentifier': db_cluster_identifier,
+        'Engine': engine,
+        'MasterUsername': master_username,
+        'ManageMasterUserPassword': manage_master_user_password,
+    }
 
-        # add optional parameters if provided
-        if database_name:
-            params['DatabaseName'] = database_name
-        if vpc_security_group_ids:
-            params['VpcSecurityGroupIds'] = vpc_security_group_ids
-        if db_subnet_group_name:
-            params['DBSubnetGroupName'] = db_subnet_group_name
-        if availability_zones:
-            params['AvailabilityZones'] = availability_zones
-        if backup_retention_period is not None:
-            params['BackupRetentionPeriod'] = backup_retention_period
-        if port is not None:
-            params['Port'] = port
-        else:
-            engine_lower = engine.lower()
-            params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
-        if engine_version:
-            params['EngineVersion'] = engine_version
+    # add optional parameters if provided
+    if database_name:
+        params['DatabaseName'] = database_name
+    if vpc_security_group_ids:
+        params['VpcSecurityGroupIds'] = vpc_security_group_ids
+    if db_subnet_group_name:
+        params['DBSubnetGroupName'] = db_subnet_group_name
+    if availability_zones:
+        params['AvailabilityZones'] = availability_zones
+    if backup_retention_period is not None:
+        params['BackupRetentionPeriod'] = backup_retention_period
+    if port is not None:
+        params['Port'] = port
+    else:
+        engine_lower = engine.lower()
+        params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
+    if engine_version:
+        params['EngineVersion'] = engine_version
 
-        # MCP tags
-        params = add_mcp_tags(params)
+    # MCP tags
+    params = add_mcp_tags(params)
 
-        logger.info(f'Creating DB cluster {db_cluster_identifier} with engine {engine}')
-        response = await asyncio.to_thread(rds_client.create_db_cluster, **params)
-        logger.success(f'Successfully created DB cluster {db_cluster_identifier}')
+    logger.info(f'Creating DB cluster {db_cluster_identifier} with engine {engine}')
+    response = await asyncio.to_thread(rds_client.create_db_cluster, **params)
+    logger.success(f'Successfully created DB cluster {db_cluster_identifier}')
 
-        result = format_rds_api_response(response)
-        result['message'] = SUCCESS_CREATED.format(f'DB cluster {db_cluster_identifier}')
-        result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
+    result = format_rds_api_response(response)
+    result['message'] = SUCCESS_CREATED.format(f'DB cluster {db_cluster_identifier}')
+    result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

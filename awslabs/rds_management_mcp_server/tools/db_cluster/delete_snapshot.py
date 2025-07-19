@@ -71,33 +71,25 @@ async def delete_db_cluster_snapshot(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        logger.info(f'Deleting DB cluster snapshot {db_cluster_snapshot_identifier}')
-        response = await asyncio.to_thread(
-            rds_client.delete_db_cluster_snapshot,
-            DBClusterSnapshotIdentifier=db_cluster_snapshot_identifier,
-        )
-        logger.success(
-            f'Successfully deleted DB cluster snapshot {db_cluster_snapshot_identifier}'
-        )
+    logger.info(f'Deleting DB cluster snapshot {db_cluster_snapshot_identifier}')
+    response = await asyncio.to_thread(
+        rds_client.delete_db_cluster_snapshot,
+        DBClusterSnapshotIdentifier=db_cluster_snapshot_identifier,
+    )
+    logger.success(f'Successfully deleted DB cluster snapshot {db_cluster_snapshot_identifier}')
 
-        # Format the response
-        result = format_rds_api_response(response)
-        formatted_snapshot = {
-            'snapshot_id': response.get('DBClusterSnapshot', {}).get(
-                'DBClusterSnapshotIdentifier'
-            ),
-            'cluster_id': response.get('DBClusterSnapshot', {}).get('DBClusterIdentifier'),
-            'status': response.get('DBClusterSnapshot', {}).get('Status'),
-            'deletion_time': response.get('DBClusterSnapshot', {}).get('SnapshotCreateTime'),
-        }
+    # Format the response
+    result = format_rds_api_response(response)
+    formatted_snapshot = {
+        'snapshot_id': response.get('DBClusterSnapshot', {}).get('DBClusterSnapshotIdentifier'),
+        'cluster_id': response.get('DBClusterSnapshot', {}).get('DBClusterIdentifier'),
+        'status': response.get('DBClusterSnapshot', {}).get('Status'),
+        'deletion_time': response.get('DBClusterSnapshot', {}).get('SnapshotCreateTime'),
+    }
 
-        result['message'] = SUCCESS_DELETED.format(
-            f'DB cluster snapshot {db_cluster_snapshot_identifier}'
-        )
-        result['formatted_snapshot'] = formatted_snapshot
+    result['message'] = SUCCESS_DELETED.format(
+        f'DB cluster snapshot {db_cluster_snapshot_identifier}'
+    )
+    result['formatted_snapshot'] = formatted_snapshot
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

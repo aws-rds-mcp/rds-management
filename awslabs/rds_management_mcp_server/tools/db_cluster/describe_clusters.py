@@ -85,40 +85,34 @@ async def describe_db_clusters(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        params = {}
+    params = {}
 
-        if db_cluster_identifier:
-            params['DBClusterIdentifier'] = db_cluster_identifier
-        if filters:
-            params['Filters'] = filters
-        if marker:
-            params['Marker'] = marker
-        if max_records:
-            params['MaxRecords'] = max_records
+    if db_cluster_identifier:
+        params['DBClusterIdentifier'] = db_cluster_identifier
+    if filters:
+        params['Filters'] = filters
+    if marker:
+        params['Marker'] = marker
+    if max_records:
+        params['MaxRecords'] = max_records
 
-        logger.info('Describing DB clusters')
-        response = await asyncio.to_thread(rds_client.describe_db_clusters, **params)
+    logger.info('Describing DB clusters')
+    response = await asyncio.to_thread(rds_client.describe_db_clusters, **params)
 
-        result = format_rds_api_response(response)
+    result = format_rds_api_response(response)
 
-        # format cluster information for better readability
-        if 'DBClusters' in result:
-            result['formatted_clusters'] = [
-                format_cluster_info(cluster) for cluster in result['DBClusters']
-            ]
+    # format cluster information for better readability
+    if 'DBClusters' in result:
+        result['formatted_clusters'] = [
+            format_cluster_info(cluster) for cluster in result['DBClusters']
+        ]
 
-        if db_cluster_identifier:
-            result['message'] = (
-                f'Successfully retrieved information for DB cluster {db_cluster_identifier}'
-            )
-        else:
-            cluster_count = len(result.get('DBClusters', []))
-            result['message'] = (
-                f'Successfully retrieved information for {cluster_count} DB clusters'
-            )
+    if db_cluster_identifier:
+        result['message'] = (
+            f'Successfully retrieved information for DB cluster {db_cluster_identifier}'
+        )
+    else:
+        cluster_count = len(result.get('DBClusters', []))
+        result['message'] = f'Successfully retrieved information for {cluster_count} DB clusters'
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

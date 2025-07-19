@@ -88,7 +88,7 @@ Example usage scenarios:
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation('failover_db_cluster')
+@require_confirmation('FailoverDBCluster')
 async def failover_db_cluster(
     db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     target_db_instance_identifier: Annotated[
@@ -114,25 +114,19 @@ async def failover_db_cluster(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        params = {
-            'DBClusterIdentifier': db_cluster_identifier,
-        }
+    params = {
+        'DBClusterIdentifier': db_cluster_identifier,
+    }
 
-        if target_db_instance_identifier:
-            params['TargetDBInstanceIdentifier'] = target_db_instance_identifier
+    if target_db_instance_identifier:
+        params['TargetDBInstanceIdentifier'] = target_db_instance_identifier
 
-        logger.info(f'Initiating failover for DB cluster {db_cluster_identifier}')
-        response = await asyncio.to_thread(rds_client.failover_db_cluster, **params)
-        logger.success(f'Successfully initiated failover for DB cluster {db_cluster_identifier}')
+    logger.info(f'Initiating failover for DB cluster {db_cluster_identifier}')
+    response = await asyncio.to_thread(rds_client.failover_db_cluster, **params)
+    logger.success(f'Successfully initiated failover for DB cluster {db_cluster_identifier}')
 
-        result = format_rds_api_response(response)
-        result['message'] = (
-            f'Successfully initiated failover for DB cluster {db_cluster_identifier}'
-        )
-        result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
+    result = format_rds_api_response(response)
+    result['message'] = f'Successfully initiated failover for DB cluster {db_cluster_identifier}'
+    result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

@@ -50,7 +50,7 @@ Without a final snapshot, all data will be permanently lost.
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation('delete_db_instance')
+@require_confirmation('DeleteDBInstance')
 async def delete_db_instance(
     db_instance_identifier: Annotated[
         str, Field(description='The identifier for the DB instance')
@@ -87,25 +87,21 @@ async def delete_db_instance(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        # AWS API parameters
-        aws_params = {
-            'DBInstanceIdentifier': db_instance_identifier,
-            'SkipFinalSnapshot': skip_final_snapshot,
-        }
+    # AWS API parameters
+    aws_params = {
+        'DBInstanceIdentifier': db_instance_identifier,
+        'SkipFinalSnapshot': skip_final_snapshot,
+    }
 
-        if not skip_final_snapshot and final_db_snapshot_identifier:
-            aws_params['FinalDBSnapshotIdentifier'] = final_db_snapshot_identifier
+    if not skip_final_snapshot and final_db_snapshot_identifier:
+        aws_params['FinalDBSnapshotIdentifier'] = final_db_snapshot_identifier
 
-        logger.info(f'Deleting DB instance {db_instance_identifier}')
-        response = await asyncio.to_thread(rds_client.delete_db_instance, **aws_params)
-        logger.success(f'Successfully initiated deletion of DB instance {db_instance_identifier}')
+    logger.info(f'Deleting DB instance {db_instance_identifier}')
+    response = await asyncio.to_thread(rds_client.delete_db_instance, **aws_params)
+    logger.success(f'Successfully initiated deletion of DB instance {db_instance_identifier}')
 
-        result = format_rds_api_response(response)
-        result['message'] = SUCCESS_DELETED.format(f'DB instance {db_instance_identifier}')
-        result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
+    result = format_rds_api_response(response)
+    result['message'] = SUCCESS_DELETED.format(f'DB instance {db_instance_identifier}')
+    result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

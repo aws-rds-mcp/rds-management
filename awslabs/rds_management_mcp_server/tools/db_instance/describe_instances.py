@@ -85,40 +85,34 @@ async def describe_db_instances(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        params = {}
+    params = {}
 
-        if db_instance_identifier:
-            params['DBInstanceIdentifier'] = db_instance_identifier
-        if filters:
-            params['Filters'] = filters
-        if marker:
-            params['Marker'] = marker
-        if max_records:
-            params['MaxRecords'] = max_records
+    if db_instance_identifier:
+        params['DBInstanceIdentifier'] = db_instance_identifier
+    if filters:
+        params['Filters'] = filters
+    if marker:
+        params['Marker'] = marker
+    if max_records:
+        params['MaxRecords'] = max_records
 
-        logger.info('Describing DB instances')
-        response = await asyncio.to_thread(rds_client.describe_db_instances, **params)
+    logger.info('Describing DB instances')
+    response = await asyncio.to_thread(rds_client.describe_db_instances, **params)
 
-        result = format_rds_api_response(response)
+    result = format_rds_api_response(response)
 
-        # format instance information for better readability
-        if 'DBInstances' in result:
-            result['formatted_instances'] = [
-                format_instance_info(instance) for instance in result['DBInstances']
-            ]
+    # format instance information for better readability
+    if 'DBInstances' in result:
+        result['formatted_instances'] = [
+            format_instance_info(instance) for instance in result['DBInstances']
+        ]
 
-        if db_instance_identifier:
-            result['message'] = (
-                f'Successfully retrieved information for DB instance {db_instance_identifier}'
-            )
-        else:
-            instance_count = len(result.get('DBInstances', []))
-            result['message'] = (
-                f'Successfully retrieved information for {instance_count} DB instances'
-            )
+    if db_instance_identifier:
+        result['message'] = (
+            f'Successfully retrieved information for DB instance {db_instance_identifier}'
+        )
+    else:
+        instance_count = len(result.get('DBInstances', []))
+        result['message'] = f'Successfully retrieved information for {instance_count} DB instances'
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result
