@@ -15,8 +15,6 @@
 """General utility functions for the RDS Management MCP Server."""
 
 import asyncio
-import time
-import uuid
 from ..common.server import SERVER_VERSION
 from ..constants import ERROR_READONLY_MODE
 from botocore.client import BaseClient
@@ -33,89 +31,6 @@ DEFAULT_PORT_ORACLE = 1521
 DEFAULT_PORT_SQLSERVER = 1433
 DEFAULT_PORT_AURORA = 3306  # compatible with MySQL
 DEFAULT_PORT_AURORA_POSTGRESQL = 5432  # Aurora PostgreSQL
-
-# Operation impact definitions
-OPERATION_IMPACTS = {
-    # Cluster operations
-    'delete_db_cluster': {
-        'risk': 'critical',
-        'downtime': 'Permanent',
-        'data_loss': 'All data will be lost unless final snapshot is taken',
-        'reversible': False,
-        'estimated_time': '5-10 minutes',
-    },
-    'stop_db_cluster': {
-        'risk': 'high',
-        'downtime': 'Until cluster is restarted',
-        'data_loss': 'None',
-        'reversible': True,
-        'estimated_time': '5-10 minutes',
-    },
-    'failover_db_cluster': {
-        'risk': 'high',
-        'downtime': '30-60 seconds',
-        'data_loss': 'None',
-        'reversible': False,
-        'estimated_time': '1-2 minutes',
-    },
-    'modify_db_cluster': {
-        'risk': 'high',
-        'downtime': 'Depends on modifications',
-        'data_loss': 'None',
-        'reversible': True,
-        'estimated_time': 'Varies',
-    },
-    'reboot_db_cluster': {
-        'risk': 'high',
-        'downtime': '2-5 minutes',
-        'data_loss': 'None',
-        'reversible': False,
-        'estimated_time': '2-5 minutes',
-    },
-    'start_db_cluster': {
-        'risk': 'low',
-        'downtime': 'None',
-        'data_loss': 'None',
-        'reversible': True,
-        'estimated_time': '5-10 minutes',
-    },
-    # Instance operations
-    'delete_db_instance': {
-        'risk': 'critical',
-        'downtime': 'Permanent',
-        'data_loss': 'All data will be lost unless final snapshot is taken',
-        'reversible': False,
-        'estimated_time': '3-5 minutes',
-    },
-    'stop_db_instance': {
-        'risk': 'high',
-        'downtime': 'Until instance is restarted',
-        'data_loss': 'None',
-        'reversible': True,
-        'estimated_time': '1-3 minutes',
-    },
-    'reboot_db_instance': {
-        'risk': 'high',
-        'downtime': '1-3 minutes',
-        'data_loss': 'None',
-        'reversible': False,
-        'estimated_time': '1-3 minutes',
-    },
-    'start_db_instance': {
-        'risk': 'low',
-        'downtime': 'None',
-        'data_loss': 'None',
-        'reversible': True,
-        'estimated_time': '3-5 minutes',
-    },
-    'modify_db_instance': {
-        'risk': 'high',
-        'downtime': 'Depends on modifications',
-        'data_loss': 'None',
-        'reversible': True,
-        'estimated_time': 'Varies',
-    },
-}
 
 
 T = TypeVar('T', bound=object)
@@ -223,49 +138,6 @@ def add_mcp_tags(params: Dict[str, Any]) -> Dict[str, Any]:
     tags.append({'Key': 'created_by', 'Value': 'rds-management-mcp-server'})
     params['Tags'] = tags
     return params
-
-
-def get_operation_impact(operation: str) -> Dict[str, Any]:
-    """Get detailed impact information for an operation.
-
-    Args:
-        operation: The operation name
-
-    Returns:
-        Dictionary with impact details
-    """
-    if operation in OPERATION_IMPACTS:
-        return OPERATION_IMPACTS[operation]
-
-    # default impact for unknown operations
-    return {
-        'risk': get_operation_risk_level(operation),
-        'downtime': 'Unknown',
-        'data_loss': 'Unknown',
-        'reversible': 'Unknown',
-        'estimated_time': 'Unknown',
-    }
-
-
-def get_operation_risk_level(operation: str) -> str:
-    """Get the risk level for an operation.
-
-    Args:
-        operation: The operation name
-
-    Returns:
-        Risk level (low, high, or critical)
-    """
-    if operation in OPERATION_IMPACTS:
-        return OPERATION_IMPACTS[operation]['risk']
-
-    # default risk levels based on operation type
-    if operation.startswith('delete_'):
-        return 'critical'
-    elif operation.startswith(('modify_', 'stop_', 'reboot_', 'failover_')):
-        return 'high'
-    else:
-        return 'low'
 
 
 def validate_db_identifier(identifier: str) -> bool:
@@ -416,80 +288,3 @@ def format_instance_info(instance: Dict[str, Any]) -> Dict[str, Any]:
         else {},
         'resource_id': instance.get('DbiResourceId'),
     }
-
-
-# dictionary to store pending operations
-# key: confirmation_token, value: (operation_type, params, expiration_time)
-_pending_operations = {}
-
-
-# expiration time for pending operations (in seconds)
-EXPIRATION_TIME = 300  # 5 minutes
-
-
-def generate_confirmation_token() -> str:
-    """Generate a unique confirmation token.
-
-    Returns:
-        str: A unique confirmation token
-    """
-    return str(uuid.uuid4())
-
-
-def add_pending_operation(operation_type: str, params: Dict[str, Any]) -> str:
-    """Add a pending operation.
-
-    Args:
-        operation_type: The type of operation (e.g., 'delete_db_cluster')
-        params: The parameters for the operation
-
-    Returns:
-        str: The confirmation token for the operation
-    """
-    token = generate_confirmation_token()
-    expiration_time = time.time() + EXPIRATION_TIME
-    _pending_operations[token] = (operation_type, params, expiration_time)
-    return token
-
-
-def get_pending_operation(token: str) -> Optional[tuple]:
-    """Get a pending operation by its confirmation token.
-
-    Args:
-        token: The confirmation token
-
-    Returns:
-        Optional[tuple]: The operation type, parameters, and expiration time, or None if not found
-    """
-    # clean up expired operations
-    cleanup_expired_operations()
-
-    # return the operation if it exists
-    return _pending_operations.get(token)
-
-
-def remove_pending_operation(token: str) -> bool:
-    """Remove a pending operation.
-
-    Args:
-        token: The confirmation token
-
-    Returns:
-        bool: True if the operation was removed, False otherwise
-    """
-    if token in _pending_operations:
-        del _pending_operations[token]
-        return True
-    return False
-
-
-def cleanup_expired_operations() -> None:
-    """Clean up expired operations."""
-    current_time = time.time()
-    expired_tokens = [
-        token
-        for token, (_, _, expiration_time) in _pending_operations.items()
-        if expiration_time < current_time
-    ]
-    for token in expired_tokens:
-        del _pending_operations[token]
