@@ -21,12 +21,9 @@ MCP_SERVER_VERSION = '0.1.0'
 ERROR_READONLY_MODE = (
     'This operation requires write access. The server is currently in read-only mode.'
 )
-ERROR_MISSING_PARAMS = 'Missing required parameters: {}'
 ERROR_INVALID_PARAMS = 'Invalid parameters: {}'
 ERROR_CLIENT = 'Client error: {}'
 ERROR_UNEXPECTED = 'Unexpected error: {}'
-ERROR_NOT_FOUND = 'Resource not found: {}'
-ERROR_OPERATION_FAILED = 'Operation failed: {}'
 
 # Success Messages
 SUCCESS_CREATED = 'Successfully created {}'
@@ -36,33 +33,7 @@ SUCCESS_STARTED = 'Successfully started {}'
 SUCCESS_STOPPED = 'Successfully stopped {}'
 SUCCESS_REBOOTED = 'Successfully rebooted {}'
 SUCCESS_RESTORED = 'Successfully restored {}'
-SUCCESS_FAILOVER = 'Successfully initiated failover for {}'
 SUCCESS_RESET = 'Successfully reset {}'
-
-# Operation Risk Levels
-RISK_LOW = 'low'
-RISK_HIGH = 'high'
-RISK_CRITICAL = 'critical'
-
-# Operation Categories
-OPERATION_READ = 'read'
-OPERATION_CREATE = 'create'
-OPERATION_MODIFY = 'modify'
-OPERATION_DELETE = 'delete'
-OPERATION_STATE_CHANGE = 'state_change'
-
-# AWS RDS Engine Types
-ENGINE_AURORA = 'aurora'
-ENGINE_AURORA_MYSQL = 'aurora-mysql'
-ENGINE_AURORA_POSTGRESQL = 'aurora-postgresql'
-ENGINE_MYSQL = 'mysql'
-ENGINE_POSTGRESQL = 'postgres'
-ENGINE_MARIADB = 'mariadb'
-ENGINE_ORACLE = 'oracle'
-ENGINE_SQLSERVER = 'sqlserver'
-
-# Default Values
-DEFAULT_BACKUP_RETENTION_PERIOD = 7
 
 # Engine port mapping
 ENGINE_PORT_MAP = {
@@ -75,10 +46,3 @@ ENGINE_PORT_MAP = {
     'oracle': 1521,
     'sqlserver': 1433,
 }
-
-# Resource URIs
-RESOURCE_PREFIX_DB_CLUSTER = 'aws-rds://clusters'
-RESOURCE_PREFIX_DB_INSTANCE = 'aws-rds://instances'
-
-# Default config values
-DEFAULT_MAX_ITEMS = 100
