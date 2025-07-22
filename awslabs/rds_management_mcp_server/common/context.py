@@ -14,14 +14,10 @@
 
 """Context management for Amazon RDS Management MCP Server."""
 
-import asyncio
-from .constants import ERROR_READONLY_MODE
-from loguru import logger
-from mcp.server.fastmcp import Context as MCPContext
-from typing import Any, Dict, Optional
+from mypy_boto3_rds.type_defs import PaginatorConfigTypeDef
 
 
-class Context:
+class RDSContext:
     """Context class for RDS Management MCP Server."""
 
     _readonly = True
@@ -57,7 +53,7 @@ class Context:
         return cls._max_items
 
     @classmethod
-    def get_pagination_config(cls) -> Dict[str, Any]:
+    def get_pagination_config(cls) -> PaginatorConfigTypeDef:
         """Get the pagination config needed for API responses.
 
         Returns:
@@ -66,21 +62,3 @@ class Context:
         return {
             'MaxItems': cls._max_items,
         }
-
-    @classmethod
-    def check_operation_allowed(cls, operation: str, ctx: Optional['MCPContext'] = None) -> bool:
-        """Check if operation is allowed in current mode.
-
-        Args:
-            operation: The operation being attempted
-            ctx: MCP context for error reporting
-
-        Returns:
-            True if operation is allowed, False otherwise
-        """
-        if cls._readonly and operation not in ['describe', 'list', 'get']:
-            logger.warning(f'Operation {operation} blocked in readonly mode')
-            if ctx:
-                asyncio.create_task(ctx.error(ERROR_READONLY_MODE))
-            return False
-        return True
