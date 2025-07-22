@@ -22,7 +22,6 @@ from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
     format_rds_api_response,
-    validate_db_identifier,
 )
 from ...constants import (
     SUCCESS_CREATED,
@@ -105,12 +104,6 @@ async def create_db_cluster_parameter_group(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Validate identifier
-    if not validate_db_identifier(db_cluster_parameter_group_name):
-        error_msg = 'Invalid parameters: Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores'
-        logger.error(error_msg)
-        return {'error': error_msg}
 
     try:
         params = {
@@ -230,12 +223,6 @@ async def create_db_instance_parameter_group(
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Validate identifier
-    if not validate_db_identifier(db_parameter_group_name):
-        error_msg = 'Invalid parameters: Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores'
-        logger.error(error_msg)
-        return {'error': error_msg}
 
     try:
         params = {

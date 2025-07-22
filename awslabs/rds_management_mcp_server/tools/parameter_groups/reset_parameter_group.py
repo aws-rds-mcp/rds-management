@@ -15,20 +15,15 @@
 """Tool to reset parameters in Amazon RDS parameter groups."""
 
 import asyncio
-import secrets
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
+from ...common.decorators.require_confirmation import require_confirmation
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
     format_rds_api_response,
-    get_operation_impact,
-)
-from ...constants import (
-    ERROR_READONLY_MODE,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -51,6 +46,8 @@ Some changes may require a DB instance reboot to take effect.
     description=RESET_CLUSTER_PARAMETER_GROUP_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
+@require_confirmation
 async def reset_db_cluster_parameter_group(
     db_cluster_parameter_group_name: Annotated[
         str, Field(description='The name of the DB cluster parameter group')
@@ -68,7 +65,6 @@ async def reset_db_cluster_parameter_group(
     confirmation_token: Annotated[
         Optional[str], Field(description='Token to confirm this potentially disruptive operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Reset parameters in a DB cluster parameter group to their default values.
 
@@ -77,31 +73,12 @@ async def reset_db_cluster_parameter_group(
         reset_all_parameters: Whether to reset all parameters
         parameters: The parameters to reset (if not resetting all)
         confirmation_token: Token to confirm this operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # Get confirmation message and impact
-    impact = get_operation_impact('reset_db_cluster_parameter_group')
-
-    # If no confirmation token provided, generate one and return
-    if not confirmation_token:
-        token = secrets.token_hex(8)
-        return {
-            'requires_confirmation': True,
-            'warning': f"You are about to reset {'all parameters' if reset_all_parameters else 'specified parameters'} in DB cluster parameter group '{db_cluster_parameter_group_name}'",
-            'impact': impact,
-            'confirmation_token': token,
-            'message': f"To confirm reset of DB cluster parameter group '{db_cluster_parameter_group_name}', please call this function again with the confirmation_token parameter set to: {token}",
-        }
 
     try:
         # Format parameters for AWS API
@@ -157,6 +134,8 @@ Some changes may require a DB instance reboot to take effect.
     description=RESET_INSTANCE_PARAMETER_GROUP_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
+@require_confirmation
 async def reset_db_instance_parameter_group(
     db_parameter_group_name: Annotated[
         str, Field(description='The name of the DB instance parameter group')
@@ -174,7 +153,6 @@ async def reset_db_instance_parameter_group(
     confirmation_token: Annotated[
         Optional[str], Field(description='Token to confirm this potentially disruptive operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Reset parameters in a DB instance parameter group to their default values.
 
@@ -183,7 +161,6 @@ async def reset_db_instance_parameter_group(
         reset_all_parameters: Whether to reset all parameters
         parameters: The parameters to reset (if not resetting all)
         confirmation_token: Token to confirm this operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -191,56 +168,34 @@ async def reset_db_instance_parameter_group(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
+    # Format parameters for AWS API
+    formatted_parameters = []
+    if not reset_all_parameters and parameters:
+        for param in parameters:
+            formatted_param = {
+                'ParameterName': param.get('name'),
+            }
+            if param.get('apply_method'):
+                formatted_param['ApplyMethod'] = param.get('apply_method')
+            formatted_parameters.append(formatted_param)
 
-    # Get confirmation message and impact
-    impact = get_operation_impact('reset_db_instance_parameter_group')
+    logger.info(
+        f'Resetting {"all parameters" if reset_all_parameters else "specified parameters"} in DB instance parameter group {db_parameter_group_name}'
+    )
+    response = await asyncio.to_thread(
+        rds_client.reset_db_parameter_group,
+        DBParameterGroupName=db_parameter_group_name,
+        ResetAllParameters=reset_all_parameters,
+        Parameters=formatted_parameters if not reset_all_parameters else [],
+    )
+    logger.success(
+        f'Successfully reset parameters in DB instance parameter group {db_parameter_group_name}'
+    )
 
-    # If no confirmation token provided, generate one and return
-    if not confirmation_token:
-        token = secrets.token_hex(8)
-        return {
-            'requires_confirmation': True,
-            'warning': f"You are about to reset {'all parameters' if reset_all_parameters else 'specified parameters'} in DB instance parameter group '{db_parameter_group_name}'",
-            'impact': impact,
-            'confirmation_token': token,
-            'message': f"To confirm reset of DB instance parameter group '{db_parameter_group_name}', please call this function again with the confirmation_token parameter set to: {token}",
-        }
+    result = format_rds_api_response(response)
+    result['message'] = (
+        f'Successfully reset {"all parameters" if reset_all_parameters else "specified parameters"} in DB instance parameter group {db_parameter_group_name}'
+    )
+    result['parameters_reset'] = len(response.get('Parameters', []))
 
-    try:
-        # Format parameters for AWS API
-        formatted_parameters = []
-        if not reset_all_parameters and parameters:
-            for param in parameters:
-                formatted_param = {
-                    'ParameterName': param.get('name'),
-                }
-                if param.get('apply_method'):
-                    formatted_param['ApplyMethod'] = param.get('apply_method')
-                formatted_parameters.append(formatted_param)
-
-        logger.info(
-            f'Resetting {"all parameters" if reset_all_parameters else "specified parameters"} in DB instance parameter group {db_parameter_group_name}'
-        )
-        response = await asyncio.to_thread(
-            rds_client.reset_db_parameter_group,
-            DBParameterGroupName=db_parameter_group_name,
-            ResetAllParameters=reset_all_parameters,
-            Parameters=formatted_parameters if not reset_all_parameters else [],
-        )
-        logger.success(
-            f'Successfully reset parameters in DB instance parameter group {db_parameter_group_name}'
-        )
-
-        result = format_rds_api_response(response)
-        result['message'] = (
-            f'Successfully reset {"all parameters" if reset_all_parameters else "specified parameters"} in DB instance parameter group {db_parameter_group_name}'
-        )
-        result['parameters_reset'] = len(response.get('Parameters', []))
-
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

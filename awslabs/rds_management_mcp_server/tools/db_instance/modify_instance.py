@@ -20,12 +20,12 @@ from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.decorators.readonly_check import readonly_check
 from ...common.server import mcp
 from ...common.utils import (
-    format_instance_info,
     format_rds_api_response,
 )
 from ...constants import (
     SUCCESS_MODIFIED,
 )
+from .utils import format_instance_info
 from loguru import logger
 from pydantic import Field
 from typing import Any, Dict, List, Optional
@@ -78,15 +78,6 @@ async def modify_db_instance(
         Optional[str],
         Field(description='The new storage type to be associated with the DB instance'),
     ] = None,
-    master_user_password: Annotated[
-        Optional[str], Field(description='The new password for the master user')
-    ] = None,
-    manage_master_user_password: Annotated[
-        Optional[bool],
-        Field(
-            description='Specifies whether to manage the master user password with AWS Secrets Manager'
-        ),
-    ] = None,
     vpc_security_group_ids: Annotated[
         Optional[List[str]],
         Field(description='A list of EC2 VPC security groups to associate with this DB instance'),
@@ -133,8 +124,6 @@ async def modify_db_instance(
         allocated_storage: The new amount of storage (in GiB) to allocate
         db_instance_class: The new compute and memory capacity of the DB instance
         storage_type: The new storage type to be associated with the DB instance
-        master_user_password: The new password for the master user
-        manage_master_user_password: Specifies whether to manage the master user password with AWS Secrets Manager
         vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB instance
         db_parameter_group_name: The name of the DB parameter group to apply to the DB instance
         backup_retention_period: The number of days to retain automated backups
@@ -165,10 +154,6 @@ async def modify_db_instance(
         params['DBInstanceClass'] = db_instance_class
     if storage_type:
         params['StorageType'] = storage_type
-    if master_user_password:
-        params['MasterUserPassword'] = master_user_password
-    if manage_master_user_password is not None:
-        params['ManageMasterUserPassword'] = manage_master_user_password
     if vpc_security_group_ids:
         params['VpcSecurityGroupIds'] = vpc_security_group_ids
     if db_parameter_group_name:

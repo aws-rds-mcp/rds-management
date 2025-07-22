@@ -34,48 +34,11 @@ from typing_extensions import Annotated
 
 MODIFY_CLUSTER_TOOL_DESCRIPTION = """Modify an existing RDS database cluster configuration.
 
-<use_case>
-Use this tool to update the configuration of an existing Amazon RDS database cluster.
-This allows changing various settings like backup retention, parameter groups, security groups,
-and upgrading database engine versions without recreating the cluster.
-</use_case>
+This tool updates the configuration of an existing Amazon RDS database cluster, allowing changes to settings like backup retention, parameter groups, security groups, and engine versions.
 
-<important_notes>
-1. Setting apply_immediately=True applies changes immediately but may cause downtime
-2. Setting apply_immediately=False (default) applies changes during the next maintenance window
-3. Major version upgrades require allow_major_version_upgrade=True
-4. Changing the port may require updates to security groups and application configurations
-5. When run with readonly=True (default), this operation will be simulated but not actually performed
-</important_notes>
-
-## Response structure
-Returns a dictionary with the following keys:
-- `message`: Success message confirming the modification
-- `formatted_cluster`: A simplified representation of the modified cluster in standard format
-- `DBCluster`: The full AWS API response containing all cluster details including:
-  - `DBClusterIdentifier`: The cluster identifier
-  - `Status`: The current status (may show "modifying")
-  - `PendingModifiedValues`: Values that will be applied if not immediate
-  - Other updated cluster configuration details
-
-<examples>
-Example usage scenarios:
-1. Increase backup retention period:
-   - db_cluster_identifier="production-db-cluster"
-   - backup_retention_period=14
-   - apply_immediately=True
-
-2. Change security groups and apply during maintenance window:
-   - db_cluster_identifier="production-db-cluster"
-   - vpc_security_group_ids=["sg-87654321", "sg-12348765"]
-   - apply_immediately=False
-
-3. Upgrade database engine version:
-   - db_cluster_identifier="production-db-cluster"
-   - engine_version="5.7.mysql_aurora.2.10.2"
-   - allow_major_version_upgrade=True
-   - apply_immediately=False
-</examples>
+<warning>
+Setting apply_immediately=True may cause downtime. By default, changes are applied during the next maintenance window.
+</warning>
 """
 
 
@@ -109,12 +72,6 @@ async def modify_db_cluster(
         Optional[int],
         Field(description='The port number on which the DB cluster accepts connections'),
     ] = None,
-    manage_master_user_password: Annotated[
-        Optional[bool],
-        Field(
-            description='Specifies whether to manage the master user password with Amazon Web Services Secrets Manager'
-        ),
-    ] = None,
     engine_version: Annotated[
         Optional[str], Field(description='The version number of the database engine to upgrade to')
     ] = None,
@@ -131,7 +88,6 @@ async def modify_db_cluster(
         db_cluster_parameter_group_name: The name of the DB cluster parameter group to use
         vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB cluster
         port: The port number on which the DB cluster accepts connections
-        manage_master_user_password: Specifies whether to manage the master user password with AWS Secrets Manager
         engine_version: The version number of the database engine to upgrade to
         allow_major_version_upgrade: Indicates whether major version upgrades are allowed
 
@@ -156,8 +112,6 @@ async def modify_db_cluster(
         params['VpcSecurityGroupIds'] = vpc_security_group_ids
     if port is not None:
         params['Port'] = port
-    if manage_master_user_password is not None:
-        params['ManageMasterUserPassword'] = manage_master_user_password
     if engine_version:
         params['EngineVersion'] = engine_version
     if allow_major_version_upgrade is not None:
