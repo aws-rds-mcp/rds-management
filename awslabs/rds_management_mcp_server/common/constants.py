@@ -14,6 +14,9 @@
 
 """Constants for RDS Management MCP Server."""
 
+# Version
+MCP_SERVER_VERSION = '0.1.0'
+
 # Error Messages
 ERROR_READONLY_MODE = (
     'This operation requires write access. The server is currently in read-only mode.'
