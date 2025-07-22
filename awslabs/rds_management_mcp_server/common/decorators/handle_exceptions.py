@@ -12,15 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Exception handling decorator for the RDS Management MCP Server."""
+"""Custom exception handling for the RDS Management MCP Server."""
 
-import json
-from ...constants import (
-    ERROR_CLIENT,
-    ERROR_READONLY_MODE,
-    ERROR_UNEXPECTED,
-)
-from ...exceptions import ConfirmationRequiredException, ReadOnlyModeException
 from botocore.exceptions import ClientError
 from functools import wraps
 from inspect import iscoroutinefunction
@@ -28,11 +21,17 @@ from loguru import logger
 from typing import Any, Callable
 
 
+ERROR_CLIENT = 'Client error: {}. Please check the error details and try again.'
+ERROR_UNEXPECTED = 'Unexpected error: {}. Please try again or check the logs for more information.'
+
+
 def handle_exceptions(func: Callable) -> Callable:
     """Decorator to handle exceptions in MCP operations.
 
     Wraps the function in a try-catch block and returns any exceptions
-    in a standardized error format.
+    in a standardized error format. Only handles ClientError and general exceptions
+    since ReadOnlyMode and ConfirmationRequired conditions are handled directly
+    by their respective decorators.
 
     Args:
         func: The function to wrap
@@ -49,55 +48,25 @@ def handle_exceptions(func: Callable) -> Callable:
                 return await func(*args, **kwargs)
             return func(*args, **kwargs)
         except Exception as error:
-            if isinstance(error, ReadOnlyModeException):
-                logger.warning(f'Operation blocked in readonly mode: {error.operation}')
-                return json.dumps(
-                    {
-                        'error': ERROR_READONLY_MODE,
-                        'operation': error.operation,
-                        'message': str(error),
-                    },
-                    indent=2,
-                )
-            elif isinstance(error, ConfirmationRequiredException):
-                logger.info(f'Confirmation required for operation: {error.operation}')
-                return json.dumps(
-                    {
-                        'requires_confirmation': True,
-                        'warning': error.warning_message,
-                        'impact': error.impact,
-                        'confirmation_token': error.confirmation_token,
-                        'message': f'{error.warning_message}\n\nTo confirm, please call this function again with the confirmation_token parameter set to this token.',
-                    },
-                    indent=2,
-                )
-            elif isinstance(error, ClientError):
+            if isinstance(error, ClientError):
                 error_code = error.response['Error']['Code']
                 error_message = error.response['Error']['Message']
                 logger.error(f'Failed with client error {error_code}: {error_message}')
 
-                # JSON error response
-                return json.dumps(
-                    {
-                        'error': ERROR_CLIENT.format(error_code),
-                        'error_code': error_code,
-                        'error_message': error_message,
-                        'operation': func.__name__,
-                    },
-                    indent=2,
-                )
+                return {
+                    'error': ERROR_CLIENT.format(error_code),
+                    'error_code': error_code,
+                    'error_message': error_message,
+                    'operation': func.__name__,
+                }
             else:
                 logger.exception(f'Failed with unexpected error: {str(error)}')
 
-                # general exceptions
-                return json.dumps(
-                    {
-                        'error': ERROR_UNEXPECTED.format(str(error)),
-                        'error_type': type(error).__name__,
-                        'error_message': str(error),
-                        'operation': func.__name__,
-                    },
-                    indent=2,
-                )
+                return {
+                    'error': ERROR_UNEXPECTED.format(str(error)),
+                    'error_type': type(error).__name__,
+                    'error_message': str(error),
+                    'operation': func.__name__,
+                }
 
     return wrapper
