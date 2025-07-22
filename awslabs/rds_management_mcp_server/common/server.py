@@ -14,9 +14,9 @@
 
 """Common MCP server configuration."""
 
+from .constants import MCP_SERVER_VERSION
 from mcp.server.fastmcp import FastMCP
 
-SERVER_VERSION = '0.1.0'
 
 SERVER_INSTRUCTIONS = """
 This server provides management capabilities for Amazon RDS database clusters including Aurora, MySQL, PostgreSQL, MariaDB, Oracle, and SQL Server.
@@ -38,7 +38,7 @@ SERVER_DEPENDENCIES = ['boto3', 'botocore', 'pydantic', 'loguru', 'mypy-boto3-rd
 # FastMCP instance
 mcp = FastMCP(
     'awslabs.rds-management-mcp-server',
-    version=SERVER_VERSION,
+    version=MCP_SERVER_VERSION,
     instructions=SERVER_INSTRUCTIONS,
     dependencies=SERVER_DEPENDENCIES,
 )
