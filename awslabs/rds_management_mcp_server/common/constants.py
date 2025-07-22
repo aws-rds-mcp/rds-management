@@ -17,14 +17,6 @@
 # Version
 MCP_SERVER_VERSION = '0.1.0'
 
-# Error Messages
-ERROR_READONLY_MODE = (
-    'This operation requires write access. The server is currently in read-only mode.'
-)
-ERROR_INVALID_PARAMS = 'Invalid parameters: {}'
-ERROR_CLIENT = 'Client error: {}'
-ERROR_UNEXPECTED = 'Unexpected error: {}'
-
 # Success Messages
 SUCCESS_CREATED = 'Successfully created {}'
 SUCCESS_MODIFIED = 'Successfully modified {}'
