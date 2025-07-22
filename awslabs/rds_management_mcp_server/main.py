@@ -20,8 +20,9 @@ import awslabs.rds_management_mcp_server.tools  # noqa: F401 - imported for side
 import os
 import sys
 from awslabs.rds_management_mcp_server.common.connection import RDSConnectionManager
-from awslabs.rds_management_mcp_server.common.server import SERVER_VERSION, mcp
-from awslabs.rds_management_mcp_server.context import Context
+from awslabs.rds_management_mcp_server.common.constants import MCP_SERVER_VERSION
+from awslabs.rds_management_mcp_server.common.context import RDSContext
+from awslabs.rds_management_mcp_server.common.server import mcp
 from loguru import logger
 
 
@@ -63,13 +64,13 @@ def main():
     readonly_mode = args.readonly
     logger.info(f'Command line readonly flag: {readonly_mode}')
     RDSConnectionManager.initialize(readonly=readonly_mode, region=args.region)
-    Context.initialize(readonly=readonly_mode, max_items=args.max_items)
+    RDSContext.initialize(readonly=readonly_mode, max_items=args.max_items)
 
     # config server port
     mcp.settings.port = args.port
 
     # logger info
-    logger.info(f'Starting RDS Management MCP Server v{SERVER_VERSION}')
+    logger.info(f'Starting RDS Management MCP Server v{MCP_SERVER_VERSION}')
     logger.info(f'Region: {RDSConnectionManager.get_region()}')
     logger.info(f'Read-only mode: {RDSConnectionManager.is_readonly()}')
     if args.profile:
