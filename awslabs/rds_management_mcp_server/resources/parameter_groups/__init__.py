@@ -13,3 +13,13 @@
 # limitations under the License.
 
 """Parameter groups resources module."""
+
+from .describe_parameters import describe_cluster_parameters, describe_instance_parameters
+from .list_parameter_groups import list_cluster_parameter_groups, list_instance_parameter_groups
+
+__all__ = [
+    'describe_cluster_parameters',
+    'describe_instance_parameters',
+    'list_cluster_parameter_groups',
+    'list_instance_parameter_groups',
+]

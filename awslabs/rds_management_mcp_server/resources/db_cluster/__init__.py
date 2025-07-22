@@ -15,6 +15,12 @@
 """Resources for RDS cluster operations."""
 
 from .list_clusters import list_clusters
-from .get_cluster_detail import get_cluster_detail
+from .describe_cluster_detail import describe_cluster_detail
+from .describe_cluster_backups import describe_cluster_backups, describe_all_cluster_backups
 
-__all__ = ['list_clusters', 'get_cluster_detail']
+__all__ = [
+    'list_clusters',
+    'describe_cluster_detail',
+    'describe_cluster_backups',
+    'describe_all_cluster_backups',
+]
