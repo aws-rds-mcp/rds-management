@@ -16,19 +16,17 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
-from ...common.server import mcp
-from ...common.utils import (
-    check_readonly_mode,
-    format_cluster_info,
-    format_rds_api_response,
-)
-from ...constants import (
-    ERROR_READONLY_MODE,
+from ...common.constants import (
     SUCCESS_MODIFIED,
 )
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
+from ...common.server import mcp
+from ...common.utils import (
+    format_rds_api_response,
+)
+from .utils import format_cluster_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -86,6 +84,7 @@ Example usage scenarios:
     description=MODIFY_CLUSTER_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def modify_db_cluster(
     db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     apply_immediately: Annotated[
@@ -122,7 +121,6 @@ async def modify_db_cluster(
     allow_major_version_upgrade: Annotated[
         Optional[bool], Field(description='Indicates whether major version upgrades are allowed')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Modify an existing RDS database cluster configuration.
 
@@ -136,17 +134,12 @@ async def modify_db_cluster(
         manage_master_user_password: Specifies whether to manage the master user password with AWS Secrets Manager
         engine_version: The version number of the database engine to upgrade to
         allow_major_version_upgrade: Indicates whether major version upgrades are allowed
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     params = {
         'DBClusterIdentifier': db_cluster_identifier,

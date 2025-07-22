@@ -16,18 +16,16 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
     format_rds_api_response,
 )
 from ...constants import (
-    ERROR_READONLY_MODE,
     SUCCESS_MODIFIED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List
 from typing_extensions import Annotated
@@ -52,6 +50,7 @@ or 'immediate' to apply it as soon as possible.
     description=MODIFY_CLUSTER_PARAMETER_GROUP_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def modify_db_cluster_parameter_group(
     db_cluster_parameter_group_name: Annotated[
         str, Field(description='The name of the DB cluster parameter group to modify')
@@ -62,7 +61,6 @@ async def modify_db_cluster_parameter_group(
             description='List of parameters to modify. Each parameter should include name, value, and optionally apply_method ("immediate" or "pending-reboot")'
         ),
     ],
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Modify parameters in a DB cluster parameter group.
 
@@ -70,17 +68,12 @@ async def modify_db_cluster_parameter_group(
         db_cluster_parameter_group_name: The name of the DB cluster parameter group
         parameters: List of parameters to modify. Each parameter should include name, value,
                    and optionally apply_method ("immediate" or "pending-reboot")
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     try:
         # Format parameters for AWS API
@@ -163,6 +156,7 @@ or 'immediate' to apply it as soon as possible.
     description=MODIFY_INSTANCE_PARAMETER_GROUP_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def modify_db_instance_parameter_group(
     db_parameter_group_name: Annotated[
         str, Field(description='The name of the DB instance parameter group to modify')
@@ -173,7 +167,6 @@ async def modify_db_instance_parameter_group(
             description='List of parameters to modify. Each parameter should include name, value, and optionally apply_method ("immediate" or "pending-reboot")'
         ),
     ],
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Modify parameters in a DB instance parameter group.
 
@@ -181,17 +174,12 @@ async def modify_db_instance_parameter_group(
         db_parameter_group_name: The name of the DB instance parameter group
         parameters: List of parameters to modify. Each parameter should include name, value,
                    and optionally apply_method ("immediate" or "pending-reboot")
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     try:
         # Format parameters for AWS API

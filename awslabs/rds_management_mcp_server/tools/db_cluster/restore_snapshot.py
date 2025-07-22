@@ -16,7 +16,7 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check
+from ...common.decorators.handle_exceptions import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
@@ -27,7 +27,6 @@ from ...constants import (
     SUCCESS_RESTORED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -80,7 +79,6 @@ async def restore_db_cluster_from_snapshot(
         Optional[List[Dict[str, str]]],
         Field(description='Optional list of tags to apply to the new DB cluster'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Restore a DB cluster from a snapshot.
 
@@ -196,7 +194,6 @@ async def restore_db_cluster_to_point_in_time(
         Optional[List[Dict[str, str]]],
         Field(description='Optional list of tags to apply to the new DB cluster'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Restore a DB cluster to a point in time.
 
@@ -209,7 +206,6 @@ async def restore_db_cluster_to_point_in_time(
         db_subnet_group_name: The DB subnet group name to use for the new DB cluster
         vpc_security_group_ids: A list of VPC security groups for the DB cluster
         tags: Optional list of tags to apply to the new DB cluster
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

@@ -16,7 +16,7 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check
+from ...common.decorators.handle_exceptions import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
@@ -26,7 +26,6 @@ from ...constants import (
     SUCCESS_CREATED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -60,7 +59,6 @@ async def create_db_cluster_snapshot(
         Optional[List[Dict[str, str]]],
         Field(description='Optional list of tags to apply to the snapshot'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Create a snapshot of an RDS database cluster.
 
@@ -68,7 +66,6 @@ async def create_db_cluster_snapshot(
         db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot
         db_cluster_identifier: The identifier of the DB cluster to create a snapshot for
         tags: Optional list of tags to apply to the snapshot
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

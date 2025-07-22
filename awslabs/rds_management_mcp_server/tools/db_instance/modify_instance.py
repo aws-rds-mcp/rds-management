@@ -16,19 +16,17 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
 from ...common.server import mcp
 from ...common.utils import (
-    check_readonly_mode,
     format_instance_info,
     format_rds_api_response,
 )
 from ...constants import (
-    ERROR_READONLY_MODE,
     SUCCESS_MODIFIED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -55,6 +53,7 @@ For storage changes, the instance may become unavailable during the modification
     description=MODIFY_INSTANCE_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def modify_db_instance(
     db_instance_identifier: Annotated[
         str, Field(description='The identifier for the DB instance')
@@ -125,7 +124,6 @@ async def modify_db_instance(
         Optional[bool],
         Field(description='Specifies whether the DB instance is publicly accessible'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Modify an existing RDS database instance configuration.
 
@@ -147,17 +145,12 @@ async def modify_db_instance(
         allow_major_version_upgrade: Indicates whether major version upgrades are allowed
         auto_minor_version_upgrade: Indicates that minor version upgrades are applied automatically
         publicly_accessible: Specifies whether the DB instance is publicly accessible
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
 
     params = {
         'DBInstanceIdentifier': db_instance_identifier,

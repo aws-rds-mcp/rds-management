@@ -16,14 +16,13 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     format_cluster_info,
     format_rds_api_response,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -68,7 +67,6 @@ async def describe_db_clusters(
         Optional[int],
         Field(description='The maximum number of records to include in the response'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Retrieve information about one or multiple Amazon RDS clusters.
 
@@ -77,7 +75,6 @@ async def describe_db_clusters(
         filters: A filter that specifies one or more DB clusters to describe
         marker: An optional pagination token
         max_records: The maximum number of records to include in the response
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

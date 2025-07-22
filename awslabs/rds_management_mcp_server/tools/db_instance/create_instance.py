@@ -16,7 +16,7 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check
+from ...common.decorators.handle_exceptions import handle_exceptions, readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
@@ -26,7 +26,6 @@ from ...common.utils import (
 )
 from ...constants import (
     ENGINE_PORT_MAP,
-    ERROR_INVALID_PARAMS,
     SUCCESS_CREATED,
 )
 from loguru import logger
@@ -190,9 +189,7 @@ async def create_db_instance(
 
     # validate identifier
     if not validate_db_identifier(db_instance_identifier):
-        error_msg = ERROR_INVALID_PARAMS.format(
-            'db_instance_identifier must be 1-63 characters, begin with a letter, and contain only alphanumeric characters and hyphens'
-        )
+        error_msg = 'Invalid parameters: db_instance_identifier must be 1-63 characters, begin with a letter, and contain only alphanumeric characters and hyphens'
         if ctx:
             await ctx.error(error_msg)
         return {'error': error_msg}
@@ -210,8 +207,8 @@ async def create_db_instance(
     else:
         # Standalone instance needs additional parameters
         if allocated_storage is None:
-            error_msg = ERROR_INVALID_PARAMS.format(
-                'allocated_storage is required for standalone instances'
+            error_msg = (
+                'Invalid parameters: allocated_storage is required for standalone instances'
             )
             if ctx:
                 await ctx.error(error_msg)
@@ -222,9 +219,7 @@ async def create_db_instance(
             and not master_user_password
             and not manage_master_user_password
         ):
-            error_msg = ERROR_INVALID_PARAMS.format(
-                'master_username and either master_user_password or manage_master_user_password are required for standalone instances'
-            )
+            error_msg = 'Invalid parameters: master_username and either master_user_password or manage_master_user_password are required for standalone instances'
             if ctx:
                 await ctx.error(error_msg)
             return {'error': error_msg}

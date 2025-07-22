@@ -16,7 +16,11 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
+from ...common.decorators.handle_exceptions import (
+    handle_exceptions,
+    readonly_check,
+    require_confirmation,
+)
 from ...common.server import mcp
 from ...common.utils import (
     format_instance_info,
@@ -26,7 +30,6 @@ from ...constants import (
     SUCCESS_DELETED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -70,7 +73,6 @@ async def delete_db_instance(
     confirmation_token: Annotated[
         Optional[str], Field(description='The confirmation token for the operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Delete an RDS database instance.
 
@@ -79,7 +81,6 @@ async def delete_db_instance(
         skip_final_snapshot: Determines whether a final DB snapshot is created
         final_db_snapshot_identifier: The DB snapshot identifier if creating final snapshot
         confirmation_token: The confirmation token for the operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

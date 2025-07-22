@@ -16,7 +16,11 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
+from ...common.decorators.handle_exceptions import (
+    handle_exceptions,
+    readonly_check,
+    require_confirmation,
+)
 from ...common.server import mcp
 from ...common.utils import (
     format_instance_info,
@@ -28,7 +32,6 @@ from ...constants import (
     SUCCESS_STOPPED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -70,7 +73,6 @@ async def status_db_instance(
     confirmation_token: Annotated[
         Optional[str], Field(description='Confirmation token for destructive operations')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Manage the status of an RDS database instance.
 
@@ -79,7 +81,6 @@ async def status_db_instance(
         action: Action to perform: "start", "stop", or "reboot"
         force_failover: When rebooting, whether to force a failover to another AZ
         confirmation_token: Confirmation token for destructive operations
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

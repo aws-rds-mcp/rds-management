@@ -16,14 +16,17 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
+from ...common.decorators.handle_exceptions import (
+    handle_exceptions,
+    readonly_check,
+    require_confirmation,
+)
 from ...common.server import mcp
 from ...common.utils import (
     format_cluster_info,
     format_rds_api_response,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -98,7 +101,6 @@ async def failover_db_cluster(
     confirmation_token: Annotated[
         Optional[str], Field(description='Confirmation token for destructive operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Force a failover for an RDS database cluster.
 
@@ -106,7 +108,6 @@ async def failover_db_cluster(
         db_cluster_identifier: The identifier for the DB cluster
         target_db_instance_identifier: The name of the instance to promote to primary
         confirmation_token: Confirmation token for destructive operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

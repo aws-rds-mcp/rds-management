@@ -16,7 +16,11 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
+from ...common.decorators.handle_exceptions import (
+    handle_exceptions,
+    readonly_check,
+    require_confirmation,
+)
 from ...common.server import mcp
 from ...common.utils import (
     format_rds_api_response,
@@ -25,7 +29,6 @@ from ...constants import (
     SUCCESS_DELETED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -56,14 +59,12 @@ async def delete_db_cluster_snapshot(
     confirmation_token: Annotated[
         Optional[str], Field(description='Confirmation token for this destructive operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Delete a snapshot of an RDS database cluster.
 
     Args:
         db_cluster_snapshot_identifier: The identifier for the DB cluster snapshot to delete
         confirmation_token: Optional confirmation token for destructive operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
