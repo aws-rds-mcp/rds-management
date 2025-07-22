@@ -17,9 +17,9 @@
 from ...common.connection import RDSConnectionManager
 from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
-from ...models import AutomatedBackupModel, BackupListModel, SnapshotModel
 from loguru import logger
-from pydantic import Field
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
 from typing_extensions import Annotated
 
 
@@ -38,14 +38,135 @@ This includes both manual snapshots and automated backups.
 """
 
 
+class VpcSecurityGroup(BaseModel):
+    """VPC security group model."""
+
+    id: str = Field(description='The VPC security group ID')
+    status: str = Field(description='The status of the VPC security group')
+
+
+class InstanceEndpoint(BaseModel):
+    """DB instance endpoint model."""
+
+    address: Optional[str] = Field(None, description='The DNS address of the instance')
+    port: Optional[int] = Field(
+        None, description='The port that the database engine is listening on'
+    )
+    hosted_zone_id: Optional[str] = Field(
+        None, description='The ID of the Amazon Route 53 hosted zone'
+    )
+
+
+class InstanceStorage(BaseModel):
+    """DB instance storage model."""
+
+    type: Optional[str] = Field(None, description='The storage type')
+    allocated: Optional[int] = Field(None, description='The allocated storage size in gibibytes')
+    encrypted: Optional[bool] = Field(None, description='Whether the storage is encrypted')
+
+
+class InstanceModel(BaseModel):
+    """DB instance model."""
+
+    instance_id: str = Field(description='The DB instance identifier')
+    status: str = Field(description='The current status of the DB instance')
+    engine: str = Field(description='The database engine')
+    engine_version: Optional[str] = Field(None, description='The version of the database engine')
+    instance_class: str = Field(
+        description='The compute and memory capacity class of the DB instance'
+    )
+    endpoint: InstanceEndpoint = Field(
+        default_factory=InstanceEndpoint, description='The connection endpoint'
+    )
+    availability_zone: Optional[str] = Field(
+        None, description='The Availability Zone of the DB instance'
+    )
+    multi_az: bool = Field(description='Whether the DB instance is a Multi-AZ deployment')
+    storage: InstanceStorage = Field(
+        default_factory=InstanceStorage, description='The storage configuration'
+    )
+    preferred_backup_window: Optional[str] = Field(
+        None, description='The daily time range during which automated backups are created'
+    )
+    preferred_maintenance_window: Optional[str] = Field(
+        None, description='The weekly time range during which system maintenance can occur'
+    )
+    publicly_accessible: bool = Field(description='Whether the DB instance is publicly accessible')
+    vpc_security_groups: List[VpcSecurityGroup] = Field(
+        default_factory=list,
+        description='A list of VPC security groups the DB instance belongs to',
+    )
+    db_cluster: Optional[str] = Field(
+        None, description='The DB cluster identifier, if this is a member of a DB cluster'
+    )
+    tags: Dict[str, str] = Field(default_factory=dict, description='A list of tags')
+    dbi_resource_id: Optional[str] = Field(
+        None, description='The AWS Region-unique, immutable identifier for the DB instance'
+    )
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this instance')
+
+
+class InstanceListModel(BaseModel):
+    """DB instance list model."""
+
+    instances: List[InstanceModel] = Field(
+        default_factory=list, description='List of DB instances'
+    )
+    count: int = Field(description='Total number of DB instances')
+    resource_uri: str = Field(description='The resource URI for the DB instances')
+
+
+class SnapshotModel(BaseModel):
+    """DB Instance Snapshot model."""
+
+    snapshot_id: str = Field(description='The identifier for the DB instance snapshot')
+    cluster_id: str = Field(description='The identifier of the DB instance')
+    creation_time: str = Field(description='The time when the snapshot was taken')
+    status: str = Field(description='The status of the DB instance snapshot')
+    engine: str = Field(description='The database engine')
+    engine_version: str = Field(description='The version of the database engine')
+    port: Optional[int] = Field(None, description='The port that the DB instance was listening on')
+    vpc_id: Optional[str] = Field(
+        None, description='The VPC ID associated with the DB instance snapshot'
+    )
+    tags: Dict[str, str] = Field(default_factory=dict, description='A list of tags')
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this snapshot')
+
+
+class AutomatedBackupModel(BaseModel):
+    """DB Instance Automated Backup model."""
+
+    backup_id: str = Field(description='The identifier for the automated backup')
+    cluster_id: str = Field(description='The identifier of the DB instance')
+    earliest_time: str = Field(description='The earliest restorable time')
+    latest_time: str = Field(description='The latest restorable time')
+    status: str = Field(description='The status of the automated backup')
+    engine: str = Field(description='The database engine')
+    engine_version: str = Field(description='The version of the database engine')
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this backup')
+
+
+class BackupListModel(BaseModel):
+    """Backup list model including both snapshots and automated backups."""
+
+    snapshots: List[SnapshotModel] = Field(
+        default_factory=list, description='List of DB instance snapshots'
+    )
+    automated_backups: List[AutomatedBackupModel] = Field(
+        default_factory=list, description='List of DB instance automated backups'
+    )
+    count: int = Field(description='Total number of backups')
+    resource_uri: str = Field(description='The resource URI for the backups')
+
+
 @mcp.resource(
     uri='aws-rds://db-instance/{instance_id}/backups',
-    name='GetDBInstanceBackups',
+    name='DescribeDBInstanceBackups',
     description=GET_INSTANCE_BACKUPS_RESOURCE_DESCRIPTION,
     mime_type='application/json',
 )
 @handle_exceptions
-async def get_instance_backups(
+async def describe_instance_backups(
     instance_id: Annotated[str, Field(description='The instance identifier')],
 ) -> BackupListModel:
     """Get all backups for a specific DB instance.
@@ -138,12 +259,12 @@ This includes both manual snapshots and automated backups.
 
 @mcp.resource(
     uri='aws-rds://db-instance/backups',
-    name='GetAllDBInstanceBackups',
+    name='DescribeAllDBInstanceBackups',
     description=GET_ALL_INSTANCE_BACKUPS_RESOURCE_DESCRIPTION,
     mime_type='application/json',
 )
 @handle_exceptions
-async def get_all_instance_backups() -> BackupListModel:
+async def describe_all_instance_backups() -> BackupListModel:
     """Get all backups across all DB instances.
 
     Returns:
