@@ -16,14 +16,15 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
+from ...common.decorators.require_confirmation import require_confirmation
 from ...common.server import mcp
 from ...common.utils import (
-    format_cluster_info,
     format_rds_api_response,
 )
+from .utils import format_cluster_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -88,7 +89,7 @@ Example usage scenarios:
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation('failover_db_cluster')
+@require_confirmation('FailoverDBCluster')
 async def failover_db_cluster(
     db_cluster_identifier: Annotated[str, Field(description='The identifier for the DB cluster')],
     target_db_instance_identifier: Annotated[
@@ -98,7 +99,6 @@ async def failover_db_cluster(
     confirmation_token: Annotated[
         Optional[str], Field(description='Confirmation token for destructive operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Force a failover for an RDS database cluster.
 
@@ -106,7 +106,6 @@ async def failover_db_cluster(
         db_cluster_identifier: The identifier for the DB cluster
         target_db_instance_identifier: The name of the instance to promote to primary
         confirmation_token: Confirmation token for destructive operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -114,25 +113,19 @@ async def failover_db_cluster(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        params = {
-            'DBClusterIdentifier': db_cluster_identifier,
-        }
+    params = {
+        'DBClusterIdentifier': db_cluster_identifier,
+    }
 
-        if target_db_instance_identifier:
-            params['TargetDBInstanceIdentifier'] = target_db_instance_identifier
+    if target_db_instance_identifier:
+        params['TargetDBInstanceIdentifier'] = target_db_instance_identifier
 
-        logger.info(f'Initiating failover for DB cluster {db_cluster_identifier}')
-        response = await asyncio.to_thread(rds_client.failover_db_cluster, **params)
-        logger.success(f'Successfully initiated failover for DB cluster {db_cluster_identifier}')
+    logger.info(f'Initiating failover for DB cluster {db_cluster_identifier}')
+    response = await asyncio.to_thread(rds_client.failover_db_cluster, **params)
+    logger.success(f'Successfully initiated failover for DB cluster {db_cluster_identifier}')
 
-        result = format_rds_api_response(response)
-        result['message'] = (
-            f'Successfully initiated failover for DB cluster {db_cluster_identifier}'
-        )
-        result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
+    result = format_rds_api_response(response)
+    result['message'] = f'Successfully initiated failover for DB cluster {db_cluster_identifier}'
+    result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

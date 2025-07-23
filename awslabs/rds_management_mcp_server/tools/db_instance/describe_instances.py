@@ -16,14 +16,13 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
-    format_instance_info,
     format_rds_api_response,
 )
+from .utils import format_instance_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -68,7 +67,6 @@ async def describe_db_instances(
         Optional[int],
         Field(description='The maximum number of records to include in the response'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Retrieve information about one or multiple Amazon RDS instances.
 
@@ -77,7 +75,6 @@ async def describe_db_instances(
         filters: A filter that specifies one or more DB instances to describe
         marker: An optional pagination token
         max_records: The maximum number of records to include in the response
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -85,40 +82,34 @@ async def describe_db_instances(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        params = {}
+    params = {}
 
-        if db_instance_identifier:
-            params['DBInstanceIdentifier'] = db_instance_identifier
-        if filters:
-            params['Filters'] = filters
-        if marker:
-            params['Marker'] = marker
-        if max_records:
-            params['MaxRecords'] = max_records
+    if db_instance_identifier:
+        params['DBInstanceIdentifier'] = db_instance_identifier
+    if filters:
+        params['Filters'] = filters
+    if marker:
+        params['Marker'] = marker
+    if max_records:
+        params['MaxRecords'] = max_records
 
-        logger.info('Describing DB instances')
-        response = await asyncio.to_thread(rds_client.describe_db_instances, **params)
+    logger.info('Describing DB instances')
+    response = await asyncio.to_thread(rds_client.describe_db_instances, **params)
 
-        result = format_rds_api_response(response)
+    result = format_rds_api_response(response)
 
-        # format instance information for better readability
-        if 'DBInstances' in result:
-            result['formatted_instances'] = [
-                format_instance_info(instance) for instance in result['DBInstances']
-            ]
+    # format instance information for better readability
+    if 'DBInstances' in result:
+        result['formatted_instances'] = [
+            format_instance_info(instance) for instance in result['DBInstances']
+        ]
 
-        if db_instance_identifier:
-            result['message'] = (
-                f'Successfully retrieved information for DB instance {db_instance_identifier}'
-            )
-        else:
-            instance_count = len(result.get('DBInstances', []))
-            result['message'] = (
-                f'Successfully retrieved information for {instance_count} DB instances'
-            )
+    if db_instance_identifier:
+        result['message'] = (
+            f'Successfully retrieved information for DB instance {db_instance_identifier}'
+        )
+    else:
+        instance_count = len(result.get('DBInstances', []))
+        result['message'] = f'Successfully retrieved information for {instance_count} DB instances'
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

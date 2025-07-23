@@ -36,7 +36,7 @@ repository = "https://github.com/awslabs/mcp.git"
 changelog = "https://github.com/awslabs/mcp/blob/main/src/rds-management-mcp-server/CHANGELOG.md"
 
 [project.scripts]
-"awslabs.rds-management-mcp-server" = "awslabs.rds_management_mcp_server.server:main"
+"awslabs.rds-management-mcp-server" = "awslabs.rds_management_mcp_server.main:main"
 
 [dependency-groups]
 dev = [

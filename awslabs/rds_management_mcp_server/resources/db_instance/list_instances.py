@@ -15,7 +15,7 @@
 """Resource for listing available RDS DB Instances."""
 
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import handle_paginated_aws_api_call
 from loguru import logger
@@ -86,11 +86,11 @@ class InstanceSummary(BaseModel):
                 endpoint = InstanceEndpoint(
                     address=instance['Endpoint'].get('Address'),
                     port=instance['Endpoint'].get('Port'),
-                    hosted_zone_id=instance['Endpoint'].get('HostedZoneId')
+                    hosted_zone_id=instance['Endpoint'].get('HostedZoneId'),
                 )
             else:
                 endpoint = InstanceEndpoint(address=instance.get('Endpoint'))
-        
+
         # Format tags
         tags = {}
         if instance.get('TagList'):

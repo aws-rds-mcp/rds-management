@@ -16,17 +16,18 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
-from ...common.server import mcp
-from ...common.utils import (
-    format_instance_info,
-    format_rds_api_response,
-)
-from ...constants import (
+from ...common.constants import (
     SUCCESS_DELETED,
 )
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
+from ...common.decorators.require_confirmation import require_confirmation
+from ...common.server import mcp
+from ...common.utils import (
+    format_rds_api_response,
+)
+from .utils import format_instance_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -50,7 +51,7 @@ Without a final snapshot, all data will be permanently lost.
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation('delete_db_instance')
+@require_confirmation('DeleteDBInstance')
 async def delete_db_instance(
     db_instance_identifier: Annotated[
         str, Field(description='The identifier for the DB instance')
@@ -70,7 +71,6 @@ async def delete_db_instance(
     confirmation_token: Annotated[
         Optional[str], Field(description='The confirmation token for the operation')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Delete an RDS database instance.
 
@@ -79,7 +79,6 @@ async def delete_db_instance(
         skip_final_snapshot: Determines whether a final DB snapshot is created
         final_db_snapshot_identifier: The DB snapshot identifier if creating final snapshot
         confirmation_token: The confirmation token for the operation
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -87,25 +86,21 @@ async def delete_db_instance(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        # AWS API parameters
-        aws_params = {
-            'DBInstanceIdentifier': db_instance_identifier,
-            'SkipFinalSnapshot': skip_final_snapshot,
-        }
+    # AWS API parameters
+    aws_params = {
+        'DBInstanceIdentifier': db_instance_identifier,
+        'SkipFinalSnapshot': skip_final_snapshot,
+    }
 
-        if not skip_final_snapshot and final_db_snapshot_identifier:
-            aws_params['FinalDBSnapshotIdentifier'] = final_db_snapshot_identifier
+    if not skip_final_snapshot and final_db_snapshot_identifier:
+        aws_params['FinalDBSnapshotIdentifier'] = final_db_snapshot_identifier
 
-        logger.info(f'Deleting DB instance {db_instance_identifier}')
-        response = await asyncio.to_thread(rds_client.delete_db_instance, **aws_params)
-        logger.success(f'Successfully initiated deletion of DB instance {db_instance_identifier}')
+    logger.info(f'Deleting DB instance {db_instance_identifier}')
+    response = await asyncio.to_thread(rds_client.delete_db_instance, **aws_params)
+    logger.success(f'Successfully initiated deletion of DB instance {db_instance_identifier}')
 
-        result = format_rds_api_response(response)
-        result['message'] = SUCCESS_DELETED.format(f'DB instance {db_instance_identifier}')
-        result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
+    result = format_rds_api_response(response)
+    result['message'] = SUCCESS_DELETED.format(f'DB instance {db_instance_identifier}')
+    result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

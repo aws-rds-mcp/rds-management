@@ -16,19 +16,17 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
-from ...common.server import mcp
-from ...common.utils import (
-    check_readonly_mode,
-    format_instance_info,
-    format_rds_api_response,
-)
-from ...constants import (
-    ERROR_READONLY_MODE,
+from ...common.constants import (
     SUCCESS_MODIFIED,
 )
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
+from ...common.server import mcp
+from ...common.utils import (
+    format_rds_api_response,
+)
+from .utils import format_instance_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -55,6 +53,7 @@ For storage changes, the instance may become unavailable during the modification
     description=MODIFY_INSTANCE_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def modify_db_instance(
     db_instance_identifier: Annotated[
         str, Field(description='The identifier for the DB instance')
@@ -78,15 +77,6 @@ async def modify_db_instance(
     storage_type: Annotated[
         Optional[str],
         Field(description='The new storage type to be associated with the DB instance'),
-    ] = None,
-    master_user_password: Annotated[
-        Optional[str], Field(description='The new password for the master user')
-    ] = None,
-    manage_master_user_password: Annotated[
-        Optional[bool],
-        Field(
-            description='Specifies whether to manage the master user password with AWS Secrets Manager'
-        ),
     ] = None,
     vpc_security_group_ids: Annotated[
         Optional[List[str]],
@@ -125,7 +115,6 @@ async def modify_db_instance(
         Optional[bool],
         Field(description='Specifies whether the DB instance is publicly accessible'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Modify an existing RDS database instance configuration.
 
@@ -135,8 +124,6 @@ async def modify_db_instance(
         allocated_storage: The new amount of storage (in GiB) to allocate
         db_instance_class: The new compute and memory capacity of the DB instance
         storage_type: The new storage type to be associated with the DB instance
-        master_user_password: The new password for the master user
-        manage_master_user_password: Specifies whether to manage the master user password with AWS Secrets Manager
         vpc_security_group_ids: A list of EC2 VPC security groups to associate with this DB instance
         db_parameter_group_name: The name of the DB parameter group to apply to the DB instance
         backup_retention_period: The number of days to retain automated backups
@@ -147,7 +134,6 @@ async def modify_db_instance(
         allow_major_version_upgrade: Indicates whether major version upgrades are allowed
         auto_minor_version_upgrade: Indicates that minor version upgrades are applied automatically
         publicly_accessible: Specifies whether the DB instance is publicly accessible
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -155,58 +141,46 @@ async def modify_db_instance(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    # Check if server is in readonly mode
-    if not check_readonly_mode('modify', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
+    params = {
+        'DBInstanceIdentifier': db_instance_identifier,
+    }
 
-    try:
-        params = {
-            'DBInstanceIdentifier': db_instance_identifier,
-        }
+    # Add optional parameters if provided
+    if apply_immediately is not None:
+        params['ApplyImmediately'] = apply_immediately
+    if allocated_storage is not None:
+        params['AllocatedStorage'] = allocated_storage
+    if db_instance_class:
+        params['DBInstanceClass'] = db_instance_class
+    if storage_type:
+        params['StorageType'] = storage_type
+    if vpc_security_group_ids:
+        params['VpcSecurityGroupIds'] = vpc_security_group_ids
+    if db_parameter_group_name:
+        params['DBParameterGroupName'] = db_parameter_group_name
+    if backup_retention_period is not None:
+        params['BackupRetentionPeriod'] = backup_retention_period
+    if preferred_backup_window:
+        params['PreferredBackupWindow'] = preferred_backup_window
+    if preferred_maintenance_window:
+        params['PreferredMaintenanceWindow'] = preferred_maintenance_window
+    if multi_az is not None:
+        params['MultiAZ'] = multi_az
+    if engine_version:
+        params['EngineVersion'] = engine_version
+    if allow_major_version_upgrade is not None:
+        params['AllowMajorVersionUpgrade'] = allow_major_version_upgrade
+    if auto_minor_version_upgrade is not None:
+        params['AutoMinorVersionUpgrade'] = auto_minor_version_upgrade
+    if publicly_accessible is not None:
+        params['PubliclyAccessible'] = publicly_accessible
 
-        # Add optional parameters if provided
-        if apply_immediately is not None:
-            params['ApplyImmediately'] = apply_immediately
-        if allocated_storage is not None:
-            params['AllocatedStorage'] = allocated_storage
-        if db_instance_class:
-            params['DBInstanceClass'] = db_instance_class
-        if storage_type:
-            params['StorageType'] = storage_type
-        if master_user_password:
-            params['MasterUserPassword'] = master_user_password
-        if manage_master_user_password is not None:
-            params['ManageMasterUserPassword'] = manage_master_user_password
-        if vpc_security_group_ids:
-            params['VpcSecurityGroupIds'] = vpc_security_group_ids
-        if db_parameter_group_name:
-            params['DBParameterGroupName'] = db_parameter_group_name
-        if backup_retention_period is not None:
-            params['BackupRetentionPeriod'] = backup_retention_period
-        if preferred_backup_window:
-            params['PreferredBackupWindow'] = preferred_backup_window
-        if preferred_maintenance_window:
-            params['PreferredMaintenanceWindow'] = preferred_maintenance_window
-        if multi_az is not None:
-            params['MultiAZ'] = multi_az
-        if engine_version:
-            params['EngineVersion'] = engine_version
-        if allow_major_version_upgrade is not None:
-            params['AllowMajorVersionUpgrade'] = allow_major_version_upgrade
-        if auto_minor_version_upgrade is not None:
-            params['AutoMinorVersionUpgrade'] = auto_minor_version_upgrade
-        if publicly_accessible is not None:
-            params['PubliclyAccessible'] = publicly_accessible
+    logger.info(f'Modifying DB instance {db_instance_identifier}')
+    response = await asyncio.to_thread(rds_client.modify_db_instance, **params)
+    logger.success(f'Successfully modified DB instance {db_instance_identifier}')
 
-        logger.info(f'Modifying DB instance {db_instance_identifier}')
-        response = await asyncio.to_thread(rds_client.modify_db_instance, **params)
-        logger.success(f'Successfully modified DB instance {db_instance_identifier}')
+    result = format_rds_api_response(response)
+    result['message'] = SUCCESS_MODIFIED.format(f'DB instance {db_instance_identifier}')
+    result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
 
-        result = format_rds_api_response(response)
-        result['message'] = SUCCESS_MODIFIED.format(f'DB instance {db_instance_identifier}')
-        result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
-
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

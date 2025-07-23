@@ -17,11 +17,9 @@
 import argparse
 import awslabs.rds_management_mcp_server.resources  # noqa: F401 - imported for side effects to register resources
 import awslabs.rds_management_mcp_server.tools  # noqa: F401 - imported for side effects to register tools
-import os
-import sys
-from awslabs.rds_management_mcp_server.common.connection import RDSConnectionManager
-from awslabs.rds_management_mcp_server.common.server import SERVER_VERSION, mcp
-from awslabs.rds_management_mcp_server.context import Context
+from awslabs.rds_management_mcp_server.common.constants import MCP_SERVER_VERSION
+from awslabs.rds_management_mcp_server.common.context import RDSContext
+from awslabs.rds_management_mcp_server.common.server import mcp
 from loguru import logger
 
 
@@ -30,6 +28,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='An AWS Labs MCP server for comprehensive management of Amazon RDS databases'
     )
+
     parser.add_argument('--port', type=int, default=8888, help='Port to run the server on')
     parser.add_argument(
         '--max-items',
@@ -38,43 +37,20 @@ def main():
         help='The maximum number of items (logs, reports, etc.) to retrieve',
     )
     parser.add_argument(
-        '--region',
-        type=str,
-        default=os.environ.get('AWS_REGION', 'us-east-1'),
-        help='AWS region for RDS operations',
-    )
-    parser.add_argument(
         '--readonly',
-        default=True,
+        default='true',
         action=argparse.BooleanOptionalAction,
         help='Prevents the MCP server from performing mutating operations',
     )
-    parser.add_argument('--profile', type=str, help='AWS profile to use for credentials')
 
     args = parser.parse_args()
-    logger.remove()
-    logger.add(sys.stderr, level=os.environ.get('FASTMCP_LOG_LEVEL', 'INFO'))
 
-    # aws profile
-    if args.profile:
-        os.environ['AWS_PROFILE'] = args.profile
-
-    # init connection manager and context
-    readonly_mode = args.readonly
-    logger.info(f'Command line readonly flag: {readonly_mode}')
-    RDSConnectionManager.initialize(readonly=readonly_mode, region=args.region)
-    Context.initialize(readonly=readonly_mode, max_items=args.max_items)
-
-    # config server port
     mcp.settings.port = args.port
+    RDSContext.initialize(args.readonly, args.max_items)
 
-    # logger info
-    logger.info(f'Starting RDS Management MCP Server v{SERVER_VERSION}')
-    logger.info(f'Region: {RDSConnectionManager.get_region()}')
-    logger.info(f'Read-only mode: {RDSConnectionManager.is_readonly()}')
-    if args.profile:
-        logger.info(f'AWS Profile: {args.profile}')
+    logger.info(f'Starting RDS Management MCP Server v{MCP_SERVER_VERSION}')
 
+    # default streamable HTTP transport
     mcp.run()
 
 

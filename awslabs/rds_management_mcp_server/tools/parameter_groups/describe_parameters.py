@@ -16,13 +16,12 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
     format_rds_api_response,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -85,7 +84,6 @@ async def describe_db_cluster_parameters(
     max_records: Annotated[
         Optional[int], Field(description='Maximum number of records to return')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """List all parameters for a DB cluster parameter group.
 
@@ -94,7 +92,6 @@ async def describe_db_cluster_parameters(
         source: The parameter source
         marker: Pagination token
         max_records: Maximum number of records to return
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -200,7 +197,6 @@ async def describe_db_instance_parameters(
     max_records: Annotated[
         Optional[int], Field(description='Maximum number of records to return')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """List all parameters for a DB instance parameter group.
 
@@ -209,7 +205,6 @@ async def describe_db_instance_parameters(
         source: The parameter source
         marker: Pagination token
         max_records: Maximum number of records to return
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -310,7 +305,6 @@ async def describe_db_cluster_parameter_groups(
     max_records: Annotated[
         Optional[int], Field(description='Maximum number of records to return')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """List DB cluster parameter groups.
 
@@ -318,7 +312,6 @@ async def describe_db_cluster_parameter_groups(
         db_cluster_parameter_group_name: The name of the DB cluster parameter group
         marker: Pagination token
         max_records: Maximum number of records to return
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -415,7 +408,6 @@ async def describe_db_instance_parameter_groups(
     max_records: Annotated[
         Optional[int], Field(description='Maximum number of records to return')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """List DB instance parameter groups.
 
@@ -423,7 +415,6 @@ async def describe_db_instance_parameter_groups(
         db_parameter_group_name: The name of the DB parameter group
         marker: Pagination token
         max_records: Maximum number of records to return
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API

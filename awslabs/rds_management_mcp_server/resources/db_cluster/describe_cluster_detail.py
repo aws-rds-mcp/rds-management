@@ -15,14 +15,66 @@
 """Resource for getting detailed information about a specific RDS DB Cluster."""
 
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import convert_datetime_to_string
-from ...models import ClusterModel, ClusterMember, VpcSecurityGroup
 from loguru import logger
-from pydantic import Field
+from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 from typing_extensions import Annotated
+
+
+class VpcSecurityGroup(BaseModel):
+    """VPC security group model."""
+
+    id: str = Field(description='The VPC security group ID')
+    status: str = Field(description='The status of the VPC security group')
+
+
+class ClusterMember(BaseModel):
+    """DB cluster member model."""
+
+    instance_id: str = Field(description='The instance identifier of the DB cluster member')
+    is_writer: bool = Field(description='Whether the cluster member is a writer instance')
+    status: Optional[str] = Field(
+        None, description='The status of the DB cluster parameter group for this member'
+    )
+
+
+class ClusterModel(BaseModel):
+    """DB cluster model."""
+
+    cluster_id: str = Field(description='The DB cluster identifier')
+    status: str = Field(description='The current status of the DB cluster')
+    engine: str = Field(description='The database engine')
+    engine_version: Optional[str] = Field(None, description='The version of the database engine')
+    endpoint: Optional[str] = Field(
+        None, description='The connection endpoint for the primary instance'
+    )
+    reader_endpoint: Optional[str] = Field(
+        None, description='The reader endpoint for the DB cluster'
+    )
+    multi_az: bool = Field(
+        description='Whether the DB cluster has instances in multiple Availability Zones'
+    )
+    backup_retention: int = Field(description='The retention period for automated backups')
+    preferred_backup_window: Optional[str] = Field(
+        None, description='The daily time range during which automated backups are created'
+    )
+    preferred_maintenance_window: Optional[str] = Field(
+        None, description='The weekly time range during which system maintenance can occur'
+    )
+    created_time: Optional[str] = Field(
+        None, description='The time when the DB cluster was created'
+    )
+    members: List[ClusterMember] = Field(
+        default_factory=list, description='A list of DB cluster members'
+    )
+    vpc_security_groups: List[VpcSecurityGroup] = Field(
+        default_factory=list, description='A list of VPC security groups the DB cluster belongs to'
+    )
+    tags: Dict[str, str] = Field(default_factory=dict, description='A list of tags')
+    resource_uri: Optional[str] = Field(None, description='The resource URI for this cluster')
 
 
 GET_CLUSTER_DETAIL_RESOURCE_DESCRIPTION = """Get detailed information about a specific Amazon RDS cluster.
@@ -57,13 +109,13 @@ Returns a JSON document containing detailed cluster information:
 
 @mcp.resource(
     uri='aws-rds://db-cluster/{cluster_id}',
-    name='GetDBClusterDetail',
+    name='DescribeDBClusterDetail',
     description=GET_CLUSTER_DETAIL_RESOURCE_DESCRIPTION,
     mime_type='application/json',
 )
 @handle_exceptions
-async def get_cluster_detail(
-    cluster_id: Annotated[str, Field(description='The cluster identifier')]
+async def describe_cluster_detail(
+    cluster_id: Annotated[str, Field(description='The cluster identifier')],
 ) -> ClusterModel:
     """Get detailed information about a specific RDS cluster.
 
@@ -87,7 +139,7 @@ async def get_cluster_detail(
         raise ValueError(f'DB cluster {cluster_id} not found')
 
     cluster_data = clusters[0]
-    
+
     # Format cluster members
     members = []
     for member in cluster_data.get('DBClusterMembers', []):
@@ -129,7 +181,7 @@ async def get_cluster_detail(
         members=members,
         vpc_security_groups=vpc_security_groups,
         tags=tags,
-        resource_uri=f'aws-rds://db-cluster/{cluster_id}'
+        resource_uri=f'aws-rds://db-cluster/{cluster_id}',
     )
 
     return cluster

@@ -16,19 +16,20 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check, require_confirmation
-from ...common.server import mcp
-from ...common.utils import (
-    format_instance_info,
-    format_rds_api_response,
-)
-from ...constants import (
+from ...common.constants import (
     SUCCESS_REBOOTED,
     SUCCESS_STARTED,
     SUCCESS_STOPPED,
 )
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
+from ...common.decorators.require_confirmation import require_confirmation
+from ...common.server import mcp
+from ...common.utils import (
+    format_rds_api_response,
+)
+from .utils import format_instance_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, Optional
 from typing_extensions import Annotated
@@ -52,12 +53,12 @@ These operations affect the availability of your database:
 
 
 @mcp.tool(
-    name='ManageDBInstanceStatus',
+    name='ChangeDBInstanceStatus',
     description=CHANGE_INSTANCE_STATUS_TOOL_DESCRIPTION,
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation('status_db_instance')
+@require_confirmation('ChangeDBInstanceStatus')
 async def status_db_instance(
     db_instance_identifier: Annotated[
         str, Field(description='The identifier for the DB instance')
@@ -70,7 +71,6 @@ async def status_db_instance(
     confirmation_token: Annotated[
         Optional[str], Field(description='Confirmation token for destructive operations')
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Manage the status of an RDS database instance.
 
@@ -79,7 +79,6 @@ async def status_db_instance(
         action: Action to perform: "start", "stop", or "reboot"
         force_failover: When rebooting, whether to force a failover to another AZ
         confirmation_token: Confirmation token for destructive operations
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -92,45 +91,39 @@ async def status_db_instance(
     if action not in ['start', 'stop', 'reboot']:
         return {'error': f'Invalid action: {action}. Must be one of: start, stop, reboot'}
 
-    try:
-        if action == 'start':
-            logger.info(f'Starting DB instance {db_instance_identifier}')
-            response = await asyncio.to_thread(
-                rds_client.start_db_instance, DBInstanceIdentifier=db_instance_identifier
-            )
-            logger.success(f'Successfully started DB instance {db_instance_identifier}')
+    if action == 'start':
+        logger.info(f'Starting DB instance {db_instance_identifier}')
+        response = await asyncio.to_thread(
+            rds_client.start_db_instance, DBInstanceIdentifier=db_instance_identifier
+        )
+        logger.success(f'Successfully started DB instance {db_instance_identifier}')
 
-            result = format_rds_api_response(response)
-            result['message'] = SUCCESS_STARTED.format(f'DB instance {db_instance_identifier}')
+        result = format_rds_api_response(response)
+        result['message'] = SUCCESS_STARTED.format(f'DB instance {db_instance_identifier}')
 
-        elif action == 'stop':
-            logger.info(f'Stopping DB instance {db_instance_identifier}')
-            response = await asyncio.to_thread(
-                rds_client.stop_db_instance, DBInstanceIdentifier=db_instance_identifier
-            )
-            logger.success(f'Successfully stopped DB instance {db_instance_identifier}')
+    elif action == 'stop':
+        logger.info(f'Stopping DB instance {db_instance_identifier}')
+        response = await asyncio.to_thread(
+            rds_client.stop_db_instance, DBInstanceIdentifier=db_instance_identifier
+        )
+        logger.success(f'Successfully stopped DB instance {db_instance_identifier}')
 
-            result = format_rds_api_response(response)
-            result['message'] = SUCCESS_STOPPED.format(f'DB instance {db_instance_identifier}')
+        result = format_rds_api_response(response)
+        result['message'] = SUCCESS_STOPPED.format(f'DB instance {db_instance_identifier}')
 
-        elif action == 'reboot':
-            logger.info(f'Rebooting DB instance {db_instance_identifier}')
-            response = await asyncio.to_thread(
-                rds_client.reboot_db_instance,
-                DBInstanceIdentifier=db_instance_identifier,
-                ForceFailover=force_failover,
-            )
-            logger.success(
-                f'Successfully initiated reboot of DB instance {db_instance_identifier}'
-            )
+    elif action == 'reboot':
+        logger.info(f'Rebooting DB instance {db_instance_identifier}')
+        response = await asyncio.to_thread(
+            rds_client.reboot_db_instance,
+            DBInstanceIdentifier=db_instance_identifier,
+            ForceFailover=force_failover,
+        )
+        logger.success(f'Successfully initiated reboot of DB instance {db_instance_identifier}')
 
-            result = format_rds_api_response(response)
-            result['message'] = SUCCESS_REBOOTED.format(f'DB instance {db_instance_identifier}')
+        result = format_rds_api_response(response)
+        result['message'] = SUCCESS_REBOOTED.format(f'DB instance {db_instance_identifier}')
 
-        # add formatted instance info to the result
-        result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
+    # add formatted instance info to the result
+    result['formatted_instance'] = format_instance_info(result.get('DBInstance', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

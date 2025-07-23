@@ -16,21 +16,17 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions
+from ...common.constants import (
+    SUCCESS_CREATED,
+)
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
-    check_readonly_mode,
     format_rds_api_response,
-    validate_db_identifier,
-)
-from ...constants import (
-    ERROR_INVALID_PARAMS,
-    ERROR_READONLY_MODE,
-    SUCCESS_CREATED,
 )
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -79,6 +75,7 @@ Example usage scenarios:
     description=CREATE_CLUSTER_PARAMETER_GROUP_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def create_db_cluster_parameter_group(
     db_cluster_parameter_group_name: Annotated[
         str, Field(description='The name of the DB cluster parameter group')
@@ -93,7 +90,6 @@ async def create_db_cluster_parameter_group(
         Optional[List[Dict[str, str]]],
         Field(description='A list of tags to apply to the parameter group'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Create a new DB cluster parameter group.
 
@@ -102,25 +98,12 @@ async def create_db_cluster_parameter_group(
         db_parameter_group_family: The DB parameter group family name
         description: The description for the DB cluster parameter group
         tags: A list of tags to apply to the parameter group
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('create', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # Validate identifier
-    if not validate_db_identifier(db_cluster_parameter_group_name):
-        error_msg = ERROR_INVALID_PARAMS.format(
-            'Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores'
-        )
-        logger.error(error_msg)
-        return {'error': error_msg}
 
     try:
         params = {
@@ -211,6 +194,7 @@ Example usage scenarios:
     description=CREATE_INSTANCE_PARAMETER_GROUP_TOOL_DESCRIPTION,
 )
 @handle_exceptions
+@readonly_check
 async def create_db_instance_parameter_group(
     db_parameter_group_name: Annotated[
         str, Field(description='The name of the DB instance parameter group')
@@ -225,7 +209,6 @@ async def create_db_instance_parameter_group(
         Optional[List[Dict[str, str]]],
         Field(description='A list of tags to apply to the parameter group'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Create a new DB instance parameter group.
 
@@ -234,25 +217,12 @@ async def create_db_instance_parameter_group(
         db_parameter_group_family: The DB parameter group family name
         description: The description for the DB instance parameter group
         tags: A list of tags to apply to the parameter group
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
-
-    # Check if server is in readonly mode
-    if not check_readonly_mode('create', Context.readonly_mode(), ctx):
-        return {'error': ERROR_READONLY_MODE}
-
-    # Validate identifier
-    if not validate_db_identifier(db_parameter_group_name):
-        error_msg = ERROR_INVALID_PARAMS.format(
-            'Parameter group name must be 1-255 characters, begin with a letter, and contain only alphanumeric characters, hyphens, and underscores'
-        )
-        logger.error(error_msg)
-        return {'error': error_msg}
 
     try:
         params = {

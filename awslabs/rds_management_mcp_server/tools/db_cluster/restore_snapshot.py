@@ -16,18 +16,18 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.decorator import handle_exceptions, readonly_check
+from ...common.constants import (
+    SUCCESS_RESTORED,
+)
+from ...common.decorators.handle_exceptions import handle_exceptions
+from ...common.decorators.readonly_check import readonly_check
 from ...common.server import mcp
 from ...common.utils import (
     add_mcp_tags,
-    format_cluster_info,
     format_rds_api_response,
 )
-from ...constants import (
-    SUCCESS_RESTORED,
-)
+from .utils import format_cluster_info
 from loguru import logger
-from mcp.server.fastmcp import Context
 from pydantic import Field
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
@@ -80,7 +80,6 @@ async def restore_db_cluster_from_snapshot(
         Optional[List[Dict[str, str]]],
         Field(description='Optional list of tags to apply to the new DB cluster'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Restore a DB cluster from a snapshot.
 
@@ -102,52 +101,48 @@ async def restore_db_cluster_from_snapshot(
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        kwargs = {
-            'DBClusterIdentifier': db_cluster_identifier,
-            'SnapshotIdentifier': snapshot_identifier,
-            'Engine': engine,
-        }
+    kwargs = {
+        'DBClusterIdentifier': db_cluster_identifier,
+        'SnapshotIdentifier': snapshot_identifier,
+        'Engine': engine,
+    }
 
-        # Add optional parameters if provided
-        if vpc_security_group_ids:
-            kwargs['VpcSecurityGroupIds'] = vpc_security_group_ids
-        if db_subnet_group_name:
-            kwargs['DBSubnetGroupName'] = db_subnet_group_name
-        if engine_version:
-            kwargs['EngineVersion'] = engine_version
-        if port:
-            kwargs['Port'] = port
-        if availability_zones:
-            kwargs['AvailabilityZones'] = availability_zones
+    # Add optional parameters if provided
+    if vpc_security_group_ids:
+        kwargs['VpcSecurityGroupIds'] = vpc_security_group_ids
+    if db_subnet_group_name:
+        kwargs['DBSubnetGroupName'] = db_subnet_group_name
+    if engine_version:
+        kwargs['EngineVersion'] = engine_version
+    if port:
+        kwargs['Port'] = port
+    if availability_zones:
+        kwargs['AvailabilityZones'] = availability_zones
 
-        # Add MCP tags and any user-provided tags
-        if tags:
-            # Format tags for AWS API
-            aws_tags = []
-            for tag_item in tags:
-                for key, value in tag_item.items():
-                    aws_tags.append({'Key': key, 'Value': value})
-            kwargs['Tags'] = aws_tags
+    # Add MCP tags and any user-provided tags
+    if tags:
+        # Format tags for AWS API
+        aws_tags = []
+        for tag_item in tags:
+            for key, value in tag_item.items():
+                aws_tags.append({'Key': key, 'Value': value})
+        kwargs['Tags'] = aws_tags
 
-        # Add MCP tags
-        kwargs = add_mcp_tags(kwargs)
+    # Add MCP tags
+    kwargs = add_mcp_tags(kwargs)
 
-        logger.info(
-            f'Restoring DB cluster {db_cluster_identifier} from snapshot {snapshot_identifier}'
-        )
-        response = await asyncio.to_thread(rds_client.restore_db_cluster_from_snapshot, **kwargs)
-        logger.success(f'Successfully initiated restore of DB cluster {db_cluster_identifier}')
+    logger.info(
+        f'Restoring DB cluster {db_cluster_identifier} from snapshot {snapshot_identifier}'
+    )
+    response = await asyncio.to_thread(rds_client.restore_db_cluster_from_snapshot, **kwargs)
+    logger.success(f'Successfully initiated restore of DB cluster {db_cluster_identifier}')
 
-        # Format the response
-        result = format_rds_api_response(response)
-        result['message'] = SUCCESS_RESTORED.format(f'DB cluster {db_cluster_identifier}')
-        result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
+    # Format the response
+    result = format_rds_api_response(response)
+    result['message'] = SUCCESS_RESTORED.format(f'DB cluster {db_cluster_identifier}')
+    result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result
 
 
 RESTORE_POINT_IN_TIME_TOOL_DESCRIPTION = """Restore an Amazon RDS database cluster to a point in time.
@@ -200,7 +195,6 @@ async def restore_db_cluster_to_point_in_time(
         Optional[List[Dict[str, str]]],
         Field(description='Optional list of tags to apply to the new DB cluster'),
     ] = None,
-    ctx: Context = None,
 ) -> Dict[str, Any]:
     """Restore a DB cluster to a point in time.
 
@@ -213,7 +207,6 @@ async def restore_db_cluster_to_point_in_time(
         db_subnet_group_name: The DB subnet group name to use for the new DB cluster
         vpc_security_group_ids: A list of VPC security groups for the DB cluster
         tags: Optional list of tags to apply to the new DB cluster
-        ctx: MCP context for logging and state management
 
     Returns:
         Dict[str, Any]: The response from the AWS API
@@ -225,52 +218,46 @@ async def restore_db_cluster_to_point_in_time(
     if not restore_to_time and not use_latest_restorable_time:
         return {'error': 'Either restore_to_time or use_latest_restorable_time must be provided'}
 
-    try:
-        kwargs = {
-            'DBClusterIdentifier': db_cluster_identifier,
-            'SourceDBClusterIdentifier': source_db_cluster_identifier,
-        }
+    kwargs = {
+        'DBClusterIdentifier': db_cluster_identifier,
+        'SourceDBClusterIdentifier': source_db_cluster_identifier,
+    }
 
-        # Add optional parameters if provided
-        if restore_to_time:
-            kwargs['RestoreToTime'] = restore_to_time
-        if use_latest_restorable_time is not None:
-            kwargs['UseLatestRestorableTime'] = use_latest_restorable_time
-        if port:
-            kwargs['Port'] = port
-        if db_subnet_group_name:
-            kwargs['DBSubnetGroupName'] = db_subnet_group_name
-        if vpc_security_group_ids:
-            kwargs['VpcSecurityGroupIds'] = vpc_security_group_ids
+    # Add optional parameters if provided
+    if restore_to_time:
+        kwargs['RestoreToTime'] = restore_to_time
+    if use_latest_restorable_time is not None:
+        kwargs['UseLatestRestorableTime'] = use_latest_restorable_time
+    if port:
+        kwargs['Port'] = port
+    if db_subnet_group_name:
+        kwargs['DBSubnetGroupName'] = db_subnet_group_name
+    if vpc_security_group_ids:
+        kwargs['VpcSecurityGroupIds'] = vpc_security_group_ids
 
-        # Add MCP tags and any user-provided tags
-        if tags:
-            # Format tags for AWS API
-            aws_tags = []
-            for tag_item in tags:
-                for key, value in tag_item.items():
-                    aws_tags.append({'Key': key, 'Value': value})
-            kwargs['Tags'] = aws_tags
+    # Add MCP tags and any user-provided tags
+    if tags:
+        # Format tags for AWS API
+        aws_tags = []
+        for tag_item in tags:
+            for key, value in tag_item.items():
+                aws_tags.append({'Key': key, 'Value': value})
+        kwargs['Tags'] = aws_tags
 
-        # Add MCP tags
-        kwargs = add_mcp_tags(kwargs)
+    # Add MCP tags
+    kwargs = add_mcp_tags(kwargs)
 
-        logger.info(f'Restoring DB cluster {db_cluster_identifier} to point in time')
-        response = await asyncio.to_thread(
-            rds_client.restore_db_cluster_to_point_in_time, **kwargs
-        )
-        logger.success(
-            f'Successfully initiated point-in-time restore of DB cluster {db_cluster_identifier}'
-        )
+    logger.info(f'Restoring DB cluster {db_cluster_identifier} to point in time')
+    response = await asyncio.to_thread(rds_client.restore_db_cluster_to_point_in_time, **kwargs)
+    logger.success(
+        f'Successfully initiated point-in-time restore of DB cluster {db_cluster_identifier}'
+    )
 
-        # Format the response
-        result = format_rds_api_response(response)
-        result['message'] = SUCCESS_RESTORED.format(
-            f'DB cluster {db_cluster_identifier} to point in time'
-        )
-        result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
+    # Format the response
+    result = format_rds_api_response(response)
+    result['message'] = SUCCESS_RESTORED.format(
+        f'DB cluster {db_cluster_identifier} to point in time'
+    )
+    result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result

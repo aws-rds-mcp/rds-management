@@ -15,6 +15,12 @@
 """Resources for RDS instance operations."""
 
 from .list_instances import list_instances
-from .get_instance_detail import get_instance_detail
+from .describe_instance_detail import describe_instance_detail
+from .describe_instance_backups import describe_instance_backups, describe_all_instance_backups
 
-__all__ = ['list_instances', 'get_instance_detail']
+__all__ = [
+    'list_instances',
+    'describe_instance_detail',
+    'describe_instance_backups',
+    'describe_all_instance_backups',
+]
