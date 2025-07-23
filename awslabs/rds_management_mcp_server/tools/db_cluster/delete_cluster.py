@@ -21,9 +21,9 @@ from ...common.decorators.readonly_check import readonly_check
 from ...common.decorators.require_confirmation import require_confirmation
 from ...common.server import mcp
 from ...common.utils import (
-    format_cluster_info,
     format_rds_api_response,
 )
+from .utils import format_cluster_info
 from loguru import logger
 from pydantic import Field
 from typing import Any, Dict, Optional

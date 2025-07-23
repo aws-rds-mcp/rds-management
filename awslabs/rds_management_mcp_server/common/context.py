@@ -14,7 +14,7 @@
 
 """Context management for Amazon RDS Management MCP Server."""
 
-from mypy_boto3_rds.type_defs import PaginatorConfigTypeDef
+from typing import Any, Dict
 
 
 class RDSContext:
@@ -53,7 +53,7 @@ class RDSContext:
         return cls._max_items
 
     @classmethod
-    def get_pagination_config(cls) -> PaginatorConfigTypeDef:
+    def get_pagination_config(cls) -> Dict[str, Any]:
         """Get the pagination config needed for API responses.
 
         Returns:

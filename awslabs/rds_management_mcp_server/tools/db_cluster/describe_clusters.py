@@ -19,9 +19,9 @@ from ...common.connection import RDSConnectionManager
 from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
 from ...common.utils import (
-    format_cluster_info,
     format_rds_api_response,
 )
+from .utils import format_cluster_info
 from loguru import logger
 from pydantic import Field
 from typing import Any, Dict, List, Optional

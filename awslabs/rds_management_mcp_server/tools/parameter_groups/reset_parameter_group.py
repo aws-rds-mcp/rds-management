@@ -47,7 +47,7 @@ Some changes may require a DB instance reboot to take effect.
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation
+@require_confirmation('ResetDBClusterParameterGroup')
 async def reset_db_cluster_parameter_group(
     db_cluster_parameter_group_name: Annotated[
         str, Field(description='The name of the DB cluster parameter group')
@@ -135,7 +135,7 @@ Some changes may require a DB instance reboot to take effect.
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation
+@require_confirmation('ResetDBInstanceParameterGroup')
 async def reset_db_instance_parameter_group(
     db_parameter_group_name: Annotated[
         str, Field(description='The name of the DB instance parameter group')
