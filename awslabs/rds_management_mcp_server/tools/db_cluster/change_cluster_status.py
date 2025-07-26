@@ -16,11 +16,6 @@
 
 import asyncio
 from ...common.connection import RDSConnectionManager
-from ...common.constants import (
-    SUCCESS_REBOOTED,
-    SUCCESS_STARTED,
-    SUCCESS_STOPPED,
-)
 from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.decorators.readonly_check import readonly_check
 from ...common.decorators.require_confirmation import require_confirmation
@@ -89,7 +84,7 @@ async def status_db_cluster(
         logger.success(f'Successfully started DB cluster {db_cluster_identifier}')
 
         result = format_rds_api_response(response)
-        result['message'] = SUCCESS_STARTED.format(f'DB cluster {db_cluster_identifier}')
+        result['message'] = f'DB cluster {db_cluster_identifier} has been started successfully.'
 
     elif action == 'stop':
         logger.info(f'Stopping DB cluster {db_cluster_identifier}')
@@ -99,7 +94,7 @@ async def status_db_cluster(
         logger.success(f'Successfully stopped DB cluster {db_cluster_identifier}')
 
         result = format_rds_api_response(response)
-        result['message'] = SUCCESS_STOPPED.format(f'DB cluster {db_cluster_identifier}')
+        result['message'] = f'DB cluster {db_cluster_identifier} has been stopped successfully.'
 
     elif action == 'reboot':
         logger.info(f'Rebooting DB cluster {db_cluster_identifier}')
@@ -109,7 +104,7 @@ async def status_db_cluster(
         logger.success(f'Successfully initiated reboot of DB cluster {db_cluster_identifier}')
 
         result = format_rds_api_response(response)
-        result['message'] = SUCCESS_REBOOTED.format(f'DB cluster {db_cluster_identifier}')
+        result['message'] = f'DB cluster {db_cluster_identifier} has been rebooted successfully.'
 
     # add formatted cluster info to the result
     result['formatted_cluster'] = format_cluster_info(result.get('DBCluster', {}))
