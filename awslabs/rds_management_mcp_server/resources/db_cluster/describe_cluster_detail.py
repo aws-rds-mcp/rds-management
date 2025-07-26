@@ -151,6 +151,9 @@ async def describe_cluster_detail(
     Returns:
         Formatted Cluster object with comprehensive details
     """
+    if not cluster_id:
+        raise ValueError('Cluster identifier cannot be empty')
+
     logger.info(f'Getting cluster detail resource for {cluster_id}')
     rds_client = RDSConnectionManager.get_connection()
     response = await asyncio.to_thread(
