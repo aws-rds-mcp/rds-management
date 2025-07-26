@@ -77,44 +77,47 @@ async def reset_db_cluster_parameter_group(
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
+    # Validate parameters
+    if not reset_all_parameters and not parameters:
+        return {
+            'error': 'When reset_all_parameters is False, you must specify parameters to reset',
+            'error_type': 'ValidationError',
+        }
+
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 
-    try:
-        # Format parameters for AWS API
-        formatted_parameters = []
-        if not reset_all_parameters and parameters:
-            for param in parameters:
-                formatted_param = {
-                    'ParameterName': param.get('name'),
-                }
-                if param.get('apply_method'):
-                    formatted_param['ApplyMethod'] = param.get('apply_method')
-                formatted_parameters.append(formatted_param)
+    # Format parameters for AWS API
+    formatted_parameters = []
+    if not reset_all_parameters and parameters:
+        for param in parameters:
+            formatted_param = {
+                'ParameterName': param.get('name'),
+            }
+            if param.get('apply_method'):
+                formatted_param['ApplyMethod'] = param.get('apply_method')
+            formatted_parameters.append(formatted_param)
 
-        logger.info(
-            f'Resetting {"all parameters" if reset_all_parameters else "specified parameters"} in DB cluster parameter group {db_cluster_parameter_group_name}'
-        )
-        response = await asyncio.to_thread(
-            rds_client.reset_db_cluster_parameter_group,
-            DBClusterParameterGroupName=db_cluster_parameter_group_name,
-            ResetAllParameters=reset_all_parameters,
-            Parameters=formatted_parameters if not reset_all_parameters else [],
-        )
-        logger.success(
-            f'Successfully reset parameters in DB cluster parameter group {db_cluster_parameter_group_name}'
-        )
+    logger.info(
+        f'Resetting {"all parameters" if reset_all_parameters else "specified parameters"} in DB cluster parameter group {db_cluster_parameter_group_name}'
+    )
+    response = await asyncio.to_thread(
+        rds_client.reset_db_cluster_parameter_group,
+        DBClusterParameterGroupName=db_cluster_parameter_group_name,
+        ResetAllParameters=reset_all_parameters,
+        Parameters=formatted_parameters if not reset_all_parameters else [],
+    )
+    logger.success(
+        f'Successfully reset parameters in DB cluster parameter group {db_cluster_parameter_group_name}'
+    )
 
-        result = format_rds_api_response(response)
-        result['message'] = (
-            f'Successfully reset {"all parameters" if reset_all_parameters else "specified parameters"} in DB cluster parameter group {db_cluster_parameter_group_name}'
-        )
-        result['parameters_reset'] = len(response.get('Parameters', []))
+    result = format_rds_api_response(response)
+    result['message'] = (
+        f'Successfully reset {"all parameters" if reset_all_parameters else "specified parameters"} in DB cluster parameter group {db_cluster_parameter_group_name}'
+    )
+    result['parameters_reset'] = len(response.get('Parameters', []))
 
-        return result
-    except Exception as e:
-        # The decorator will handle the exception
-        raise e
+    return result
 
 
 RESET_INSTANCE_PARAMETER_GROUP_DESCRIPTION = """Reset parameters in an Amazon RDS DB instance parameter group to their default values.
@@ -165,6 +168,13 @@ async def reset_db_instance_parameter_group(
     Returns:
         Dict[str, Any]: The response from the AWS API
     """
+    # Validate parameters
+    if not reset_all_parameters and not parameters:
+        return {
+            'error': 'When reset_all_parameters is False, you must specify parameters to reset',
+            'error_type': 'ValidationError',
+        }
+
     # Get RDS client
     rds_client = RDSConnectionManager.get_connection()
 

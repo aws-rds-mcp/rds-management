@@ -49,7 +49,7 @@ Once a snapshot is deleted, it cannot be recovered.
 )
 @handle_exceptions
 @readonly_check
-@require_confirmation('delete_db_cluster_snapshot')
+@require_confirmation('DeleteDBClusterSnapshot')
 async def delete_db_cluster_snapshot(
     db_cluster_snapshot_identifier: Annotated[
         str, Field(description='The identifier for the DB cluster snapshot to delete')

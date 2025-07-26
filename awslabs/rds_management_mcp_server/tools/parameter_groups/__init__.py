@@ -18,10 +18,18 @@ from .create_parameter_group import create_db_cluster_parameter_group
 from .create_parameter_group import create_db_instance_parameter_group
 from .modify_parameter_group import modify_db_cluster_parameter_group
 from .reset_parameter_group import reset_db_cluster_parameter_group
+from .describe_cluster_parameters import describe_db_cluster_parameters
+from .describe_instance_parameters import describe_db_instance_parameters
+from .describe_cluster_parameter_groups import describe_db_cluster_parameter_groups
+from .describe_instance_parameter_groups import describe_db_instance_parameter_groups
 
 __all__ = [
     'create_db_cluster_parameter_group',
     'create_db_instance_parameter_group',
     'modify_db_cluster_parameter_group',
     'reset_db_cluster_parameter_group',
+    'describe_db_cluster_parameters',
+    'describe_db_instance_parameters',
+    'describe_db_cluster_parameter_groups',
+    'describe_db_instance_parameter_groups',
 ]

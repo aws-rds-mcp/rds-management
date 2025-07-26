@@ -12,23 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Resource for getting detailed information about a specific RDS DB Cluster."""
+"""Resource for retrieving detailed information about RDS DB Clusters."""
 
+import asyncio
 from ...common.connection import RDSConnectionManager
 from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
-from ...common.utils import convert_datetime_to_string
+from datetime import datetime
 from loguru import logger
+from mypy_boto3_rds.type_defs import DBClusterTypeDef
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
-from typing_extensions import Annotated
 
 
-class VpcSecurityGroup(BaseModel):
-    """VPC security group model."""
+DESCRIBE_CLUSTER_DETAIL_RESOURCE_DESCRIPTION = """Get detailed information about a specific Amazon RDS cluster.
 
-    id: str = Field(description='The VPC security group ID')
-    status: str = Field(description='The status of the VPC security group')
+This resource retrieves comprehensive details about a specific RDS database cluster identified by its cluster ID, including configuration, endpoints, backup settings, and maintenance windows.
+"""
+
+# Data Models
 
 
 class ClusterMember(BaseModel):
@@ -41,7 +43,7 @@ class ClusterMember(BaseModel):
     )
 
 
-class ClusterModel(BaseModel):
+class Cluster(BaseModel):
     """DB cluster model."""
 
     cluster_id: str = Field(description='The DB cluster identifier')
@@ -64,124 +66,103 @@ class ClusterModel(BaseModel):
     preferred_maintenance_window: Optional[str] = Field(
         None, description='The weekly time range during which system maintenance can occur'
     )
-    created_time: Optional[str] = Field(
+    created_time: Optional[datetime] = Field(
         None, description='The time when the DB cluster was created'
     )
     members: List[ClusterMember] = Field(
         default_factory=list, description='A list of DB cluster members'
     )
-    vpc_security_groups: List[VpcSecurityGroup] = Field(
+    vpc_security_groups: List[Dict[str, str]] = Field(
         default_factory=list, description='A list of VPC security groups the DB cluster belongs to'
     )
     tags: Dict[str, str] = Field(default_factory=dict, description='A list of tags')
     resource_uri: Optional[str] = Field(None, description='The resource URI for this cluster')
 
+    @classmethod
+    def from_DBClusterTypeDef(cls, cluster: DBClusterTypeDef) -> 'Cluster':
+        """Format cluster information from AWS API response into a detailed structured model.
 
-GET_CLUSTER_DETAIL_RESOURCE_DESCRIPTION = """Get detailed information about a specific Amazon RDS cluster.
+        Args:
+            cluster: Raw cluster data from AWS API response
 
-<use_case>
-Use this resource to retrieve comprehensive details about a specific RDS database cluster
-identified by its cluster ID. This provides deeper insights than the cluster list resource.
-</use_case>
+        Returns:
+            Formatted cluster information as a Cluster object with comprehensive details
+        """
+        members = []
+        for member in cluster.get('DBClusterMembers', []):
+            members.append(
+                ClusterMember(
+                    instance_id=member.get('DBInstanceIdentifier', ''),
+                    is_writer=member.get('IsClusterWriter', False),
+                    status=member.get('DBClusterParameterGroupStatus'),
+                )
+            )
 
-<important_notes>
-1. The cluster ID must exist in your AWS account and region
-2. The response contains full configuration details about the specified cluster
-3. This resource includes information not available in the list view such as parameter groups,
-   backup configuration, and maintenance windows
-4. Use the cluster list resource first to identify valid cluster IDs
-5. Error responses will be returned if the cluster doesn't exist or there are permission issues
-</important_notes>
+        vpc_security_groups = []
+        for sg in cluster.get('VpcSecurityGroups', []):
+            vpc_security_groups.append(
+                {'id': sg.get('VpcSecurityGroupId', ''), 'status': sg.get('Status', '')}
+            )
 
-## Response structure
-Returns a JSON document containing detailed cluster information:
-- All fields from the list view plus:
-- `endpoint`: The primary endpoint for connecting to the cluster
-- `reader_endpoint`: The reader endpoint for read operations (if applicable)
-- `port`: The port the database engine is listening on
-- `parameter_group`: Database parameter group information
-- `backup_retention_period`: How long backups are retained (in days)
-- `preferred_backup_window`: When automated backups occur
-- `preferred_maintenance_window`: When maintenance operations can occur
-- `resource_uri`: The full resource URI for this specific cluster
-"""
+        tags = {}
+        if cluster.get('TagList'):
+            for tag in cluster.get('TagList', []):
+                if 'Key' in tag and 'Value' in tag:
+                    tags[tag['Key']] = tag['Value']
+
+        cluster_id = cluster.get('DBClusterIdentifier', '')
+
+        return cls(
+            cluster_id=cluster_id,
+            status=cluster.get('Status', ''),
+            engine=cluster.get('Engine', ''),
+            engine_version=cluster.get('EngineVersion'),
+            endpoint=cluster.get('Endpoint'),
+            reader_endpoint=cluster.get('ReaderEndpoint'),
+            multi_az=cluster.get('MultiAZ', False),
+            backup_retention=cluster.get('BackupRetentionPeriod', 0),
+            preferred_backup_window=cluster.get('PreferredBackupWindow'),
+            preferred_maintenance_window=cluster.get('PreferredMaintenanceWindow'),
+            created_time=cluster.get('ClusterCreateTime'),
+            members=members,
+            vpc_security_groups=vpc_security_groups,
+            tags=tags,
+            resource_uri=f'aws-rds://db-cluster/{cluster_id}',
+        )
 
 
 @mcp.resource(
     uri='aws-rds://db-cluster/{cluster_id}',
     name='DescribeDBClusterDetail',
-    description=GET_CLUSTER_DETAIL_RESOURCE_DESCRIPTION,
+    description=DESCRIBE_CLUSTER_DETAIL_RESOURCE_DESCRIPTION,
     mime_type='application/json',
 )
 @handle_exceptions
 async def describe_cluster_detail(
-    cluster_id: Annotated[str, Field(description='The cluster identifier')],
-) -> ClusterModel:
-    """Get detailed information about a specific RDS cluster.
-
-    Retrieves comprehensive details about a specific RDS database cluster identified
-    by its cluster ID. This provides detailed insights into the cluster's configuration,
-    performance, and status.
+    cluster_id: str = Field(
+        ..., description='The unique identifier of the RDS DB cluster to retrieve details for'
+    ),
+) -> Cluster:
+    """Retrieve detailed information about a specific RDS cluster.
 
     Args:
-        cluster_id: The identifier of the DB cluster to retrieve details for
+        cluster_id: The unique identifier of the DB cluster to retrieve
 
     Returns:
-        ClusterModel: Object containing detailed information about the DB cluster
+        Formatted Cluster object with comprehensive details
     """
-    logger.info(f'Getting details for RDS cluster: {cluster_id}')
+    if not cluster_id:
+        raise ValueError('Cluster identifier cannot be empty')
+
+    logger.info(f'Getting cluster detail resource for {cluster_id}')
     rds_client = RDSConnectionManager.get_connection()
-
-    response = rds_client.describe_db_clusters(DBClusterIdentifier=cluster_id)
-    clusters = response.get('DBClusters', [])
-
-    if not clusters:
-        raise ValueError(f'DB cluster {cluster_id} not found')
-
-    cluster_data = clusters[0]
-
-    # Format cluster members
-    members = []
-    for member in cluster_data.get('DBClusterMembers', []):
-        members.append(
-            ClusterMember(
-                instance_id=member.get('DBInstanceIdentifier'),
-                is_writer=member.get('IsClusterWriter'),
-                status=member.get('DBClusterParameterGroupStatus'),
-            )
-        )
-
-    # Format VPC security groups
-    vpc_security_groups = []
-    for sg in cluster_data.get('VpcSecurityGroups', []):
-        vpc_security_groups.append(
-            VpcSecurityGroup(id=sg.get('VpcSecurityGroupId'), status=sg.get('Status'))
-        )
-
-    # Format tags
-    tags = {}
-    if cluster_data.get('TagList'):
-        for tag in cluster_data.get('TagList', []):
-            if 'Key' in tag and 'Value' in tag:
-                tags[tag['Key']] = tag['Value']
-
-    # Create the cluster model
-    cluster = ClusterModel(
-        cluster_id=cluster_data.get('DBClusterIdentifier'),
-        status=cluster_data.get('Status'),
-        engine=cluster_data.get('Engine'),
-        engine_version=cluster_data.get('EngineVersion'),
-        endpoint=cluster_data.get('Endpoint'),
-        reader_endpoint=cluster_data.get('ReaderEndpoint'),
-        multi_az=cluster_data.get('MultiAZ', False),
-        backup_retention=cluster_data.get('BackupRetentionPeriod', 0),
-        preferred_backup_window=cluster_data.get('PreferredBackupWindow'),
-        preferred_maintenance_window=cluster_data.get('PreferredMaintenanceWindow'),
-        created_time=convert_datetime_to_string(cluster_data.get('ClusterCreateTime')),
-        members=members,
-        vpc_security_groups=vpc_security_groups,
-        tags=tags,
-        resource_uri=f'aws-rds://db-cluster/{cluster_id}',
+    response = await asyncio.to_thread(
+        rds_client.describe_db_clusters, DBClusterIdentifier=cluster_id
     )
+
+    clusters = response.get('DBClusters', [])
+    if not clusters:
+        raise ValueError(f'Cluster {cluster_id} not found')
+    cluster = Cluster.from_DBClusterTypeDef(clusters[0])
 
     return cluster

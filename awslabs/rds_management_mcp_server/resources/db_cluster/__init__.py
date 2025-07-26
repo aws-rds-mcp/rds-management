@@ -16,7 +16,8 @@
 
 from .list_clusters import list_clusters
 from .describe_cluster_detail import describe_cluster_detail
-from .describe_cluster_backups import describe_cluster_backups, describe_all_cluster_backups
+from .describe_cluster_backups import describe_cluster_backups
+from .describe_all_cluster_backups import describe_all_cluster_backups
 
 __all__ = [
     'list_clusters',

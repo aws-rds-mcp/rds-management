@@ -18,7 +18,7 @@ import asyncio
 from ...common.connection import RDSConnectionManager
 from ...common.decorators.handle_exceptions import handle_exceptions
 from ...common.server import mcp
-from ...models import ParameterGroupListModel, ParameterGroupModel, ParameterModel
+from .describe_parameters import ParameterGroupListModel, ParameterGroupModel, ParameterModel
 from loguru import logger
 
 

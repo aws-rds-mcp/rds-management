@@ -1,5 +1,5 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,28 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for RDS Management MCP Server main module."""
+"""Tests for main module."""
 
 import pytest
-import sys
-from unittest.mock import patch, MagicMock
-from awslabs.rds_management_mcp_server.server import main
+from awslabs.rds_management_mcp_server.main import main
+from unittest.mock import patch
 
 
 class TestMain:
-    """Tests for main entry point."""
+    """Test cases for main function."""
 
-    @patch('awslabs.rds_management_mcp_server.server.mcp.run')
-    @patch('sys.argv', ['awslabs.rds-management-mcp-server', '--region', 'us-east-1'])
-    def test_main_default(self, mock_run):
-        """Test main function with default arguments."""
-        main()
-        mock_run.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_main_success(self):
+        """Test successful main function execution."""
+        with patch('awslabs.rds_management_mcp_server.main.mcp.run') as mock_run:
+            with patch('sys.argv', ['test']):
+                main()
 
-    @patch('awslabs.rds_management_mcp_server.server.mcp.run')
-    @patch('sys.argv', ['awslabs.rds-management-mcp-server', '--region', 'us-east-1'])
-    def test_module_execution(self, mock_run):
-        """Test the module can be executed as a script."""
-        with patch.object(sys, 'exit'):
-            main()
-        mock_run.assert_called_once()
+            mock_run.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_main_with_args(self):
+        """Test main function with command line arguments."""
+        with patch('awslabs.rds_management_mcp_server.main.mcp.run') as mock_run:
+            with patch('sys.argv', ['test', '--readonly']):
+                main()
+
+            mock_run.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_main_exception_handling(self):
+        """Test main function exception handling."""
+        with patch('awslabs.rds_management_mcp_server.main.mcp.run') as mock_run:
+            mock_run.side_effect = Exception('Test exception')
+
+            with patch('sys.argv', ['test']):
+                with pytest.raises(Exception, match='Test exception'):
+                    main()

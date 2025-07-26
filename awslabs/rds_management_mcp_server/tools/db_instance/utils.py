@@ -64,4 +64,10 @@ def format_instance_info(instance: Dict[str, Any]) -> Dict[str, Any]:
         if instance.get('TagList')
         else {},
         'resource_id': instance.get('DbiResourceId'),
+        'read_replica_db_instance_identifiers': instance.get(
+            'ReadReplicaDBInstanceIdentifiers', []
+        ),
+        'read_replica_source_db_instance_identifier': instance.get(
+            'ReadReplicaSourceDBInstanceIdentifier'
+        ),
     }

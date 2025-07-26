@@ -155,6 +155,8 @@ async def create_db_instance(
         params['MasterUsername'] = master_username
     if db_name:
         params['DBName'] = db_name
+    if db_cluster_identifier:
+        params['DBClusterIdentifier'] = db_cluster_identifier
     if vpc_security_group_ids:
         params['VpcSecurityGroupIds'] = vpc_security_group_ids
     if availability_zone:
