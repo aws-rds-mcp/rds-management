@@ -75,6 +75,27 @@ OPERATION_IMPACTS = {
         'reversible': 'Yes - can failover again',
         'estimated_time': '1-3 minutes',
     },
+    'ResetDBClusterParameterGroup': {
+        'risk': 'medium',
+        'downtime': 'Possible brief interruption depending on parameters',
+        'data_loss': 'None expected',
+        'reversible': 'Yes - parameters can be modified again',
+        'estimated_time': '1-2 minutes',
+    },
+    'ResetDBInstanceParameterGroup': {
+        'risk': 'medium',
+        'downtime': 'Possible brief interruption depending on parameters',
+        'data_loss': 'None expected',
+        'reversible': 'Yes - parameters can be modified again',
+        'estimated_time': '1-2 minutes',
+    },
+    'DeleteDBClusterSnapshot': {
+        'risk': 'critical',
+        'downtime': 'None',
+        'data_loss': 'Snapshot will be permanently deleted',
+        'reversible': 'No - snapshot cannot be recovered',
+        'estimated_time': '1-2 minutes',
+    },
 }
 
 RESOURCE_MAPPINGS = {
