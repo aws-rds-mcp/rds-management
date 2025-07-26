@@ -16,7 +16,8 @@
 
 from .list_instances import list_instances
 from .describe_instance_detail import describe_instance_detail
-from .describe_instance_backups import describe_instance_backups, describe_all_instance_backups
+from .describe_instance_backups import describe_instance_backups
+from .describe_all_instance_backups import describe_all_instance_backups
 
 __all__ = [
     'list_instances',
