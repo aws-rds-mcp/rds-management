@@ -86,6 +86,13 @@ class Instance(BaseModel):
         None, description='The AWS Region-unique, immutable identifier for the DB instance'
     )
     resource_uri: Optional[str] = Field(None, description='The resource URI for this instance')
+    read_replica_db_instance_identifiers: List[str] = Field(
+        default_factory=list,
+        description='A list of DB instance identifiers that are read replicas of this DB instance',
+    )
+    read_replica_source_db_instance_identifier: Optional[str] = Field(
+        None, description='The identifier of the source DB instance if this is a read replica'
+    )
 
     @classmethod
     def from_DBInstanceTypeDef(cls, instance: DBInstanceTypeDef) -> 'Instance':
@@ -140,6 +147,12 @@ class Instance(BaseModel):
             tags=formatted_data.get('tags', {}),
             dbi_resource_id=formatted_data.get('resource_id'),
             resource_uri=None,
+            read_replica_db_instance_identifiers=formatted_data.get(
+                'read_replica_db_instance_identifiers', []
+            ),
+            read_replica_source_db_instance_identifier=formatted_data.get(
+                'read_replica_source_db_instance_identifier'
+            ),
         )
 
 
