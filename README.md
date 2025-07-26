@@ -16,33 +16,33 @@ The official MCP Server for managing AWS RDS database resources. This server pro
 
 ### DB Cluster Management Tools
 
-- CreateDBCluster - Create a new Amazon RDS database cluster
-- ModifyDBCluster - Modify an existing RDS database cluster configuration
-- DeleteDBCluster - Delete an RDS database cluster
-- ChangeDBClusterStatus - Start, stop, or reboot a DB cluster
-- FailoverDBCluster - Force a failover for an RDS database cluster
-- CreateDBClusterSnapshot - Create a snapshot of a DB cluster
-- DeleteDBClusterSnapshot - Delete a DB cluster snapshot
-- RestoreDBClusterFromSnapshot - Restore a DB cluster from a snapshot
-- RestoreDBClusterToPointInTime - Restore a DB cluster to a point in time
-- DescribeDBClusters - Retrieve information about RDS database clusters
+- `CreateDBCluster` - Create a new Amazon RDS database cluster
+- `ModifyDBCluster` - Modify an existing RDS database cluster configuration
+- `DeleteDBCluster` - Delete an RDS database cluster
+- `ChangeDBClusterStatus` - Start, stop, or reboot a DB cluster
+- `FailoverDBCluster` - Force a failover for an RDS database cluster
+- `CreateDBClusterSnapshot` - Create a snapshot of a DB cluster
+- `DeleteDBClusterSnapshot` - Delete a DB cluster snapshot
+- `RestoreDBClusterFromSnapshot` - Restore a DB cluster from a snapshot
+- `RestoreDBClusterToPointInTime` - Restore a DB cluster to a point in time
+- `DescribeDBClusters` - Retrieve information about RDS database clusters
 
 ### DB Instance Management Tools
 
-- CreateDBInstance - Create a new Amazon RDS database instance
-- ModifyDBInstance - Modify an existing RDS database instance
-- DeleteDBInstance - Delete an RDS database instance
-- ManageDBInstanceStatus - Start, stop, or reboot a DB instance
-- DescribeDBInstances - Retrieve information about RDS database instances
+- `CreateDBInstance` - Create a new Amazon RDS database instance
+- `ModifyDBInstance` - Modify an existing RDS database instance
+- `DeleteDBInstance` - Delete an RDS database instance
+- `ManageDBInstanceStatus` - Start, stop, or reboot a DB instance
+- `DescribeDBInstances` - Retrieve information about RDS database instances
 
 ### Parameter Group Management Tools
 
-- CreateDBClusterParameterGroup - Create a new custom DB cluster parameter group
-- CreateDBInstanceParameterGroup - Create a new custom DB instance parameter group
-- ModifyDBClusterParameterGroup - Modify parameters in a DB cluster parameter group
-- ModifyDBInstanceParameterGroup - Modify parameters in a DB instance parameter group
-- ResetDBClusterParameterGroup - Reset parameters in a DB cluster parameter group
-- ResetDBInstanceParameterGroup - Reset parameters in a DB instance parameter group
+- `CreateDBClusterParameterGroup` - Create a new custom DB cluster parameter group
+- `CreateDBInstanceParameterGroup` - Create a new custom DB instance parameter group
+- `ModifyDBClusterParameterGroup` - Modify parameters in a DB cluster parameter group
+- `ModifyDBInstanceParameterGroup` - Modify parameters in a DB instance parameter group
+- `ResetDBClusterParameterGroup` - Reset parameters in a DB cluster parameter group
+- `ResetDBInstanceParameterGroup` - Reset parameters in a DB instance parameter group
 
 ## Instructions
 
