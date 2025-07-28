@@ -145,8 +145,11 @@ async def create_db_instance(
         'DBInstanceIdentifier': db_instance_identifier,
         'DBInstanceClass': db_instance_class,
         'Engine': engine,
-        'ManageMasterUserPassword': True,
     }
+
+    # only set ManageMasterUserPassword for standalone instances
+    if not db_cluster_identifier:
+        params['ManageMasterUserPassword'] = True
 
     # add optional parameters if provided
     if allocated_storage is not None:
@@ -171,12 +174,14 @@ async def create_db_instance(
         params['StorageType'] = storage_type
     if storage_encrypted is not None:
         params['StorageEncrypted'] = storage_encrypted
-    if port is not None:
-        params['Port'] = port
-    else:
-        engine_lower = engine.lower()
-        # Use ENGINE_PORT_MAP to get the port, defaulting to None if not found
-        params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
+    # Only set port for standalone instances
+    if not db_cluster_identifier:
+        if port is not None:
+            params['Port'] = port
+        else:
+            engine_lower = engine.lower()
+            # Use ENGINE_PORT_MAP to get the port, defaulting to None if not found
+            params['Port'] = ENGINE_PORT_MAP.get(engine_lower)
     if publicly_accessible is not None:
         params['PubliclyAccessible'] = publicly_accessible
     if backup_retention_period is not None:
