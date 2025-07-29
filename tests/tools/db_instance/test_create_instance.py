@@ -147,7 +147,8 @@ class TestCreateDBInstance:
         assert call_args['EngineVersion'] == '8.0.35'
         assert call_args['StorageType'] == 'gp2'
         assert call_args['StorageEncrypted'] is True
-        assert call_args['Port'] == 3306
+        # Port is not set for cluster instances
+        assert 'Port' not in call_args
         assert call_args['PubliclyAccessible'] is True
         assert call_args['BackupRetentionPeriod'] == 14
 
