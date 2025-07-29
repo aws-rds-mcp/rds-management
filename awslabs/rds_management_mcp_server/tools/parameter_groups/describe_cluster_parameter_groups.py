@@ -67,7 +67,7 @@ Example usage scenarios:
 
 
 @mcp.tool(
-    name='DescribeDBClusterParameterGroups',
+    name='DescribeDBClusterParamGroups',
     description=DESCRIBE_DB_CLUSTER_PARAMETER_GROUPS_TOOL_DESCRIPTION,
 )
 @handle_exceptions

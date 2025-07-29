@@ -148,7 +148,7 @@ or 'immediate' to apply it as soon as possible.
 
 
 @mcp.tool(
-    name='ModifyDBInstanceParameterGroup',
+    name='ModifyDBInstanceParamGroup',
     description=MODIFY_INSTANCE_PARAMETER_GROUP_DESCRIPTION,
 )
 @handle_exceptions

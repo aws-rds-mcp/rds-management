@@ -67,7 +67,7 @@ Example usage scenarios:
 
 
 @mcp.tool(
-    name='DescribeDBInstanceParameterGroups',
+    name='DescribeDBInstanceParamGroups',
     description=DESCRIBE_DB_INSTANCE_PARAMETER_GROUPS_TOOL_DESCRIPTION,
 )
 @handle_exceptions

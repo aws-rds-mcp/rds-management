@@ -190,7 +190,7 @@ Example usage scenarios:
 
 
 @mcp.tool(
-    name='CreateDBInstanceParameterGroup',
+    name='CreateDBInstanceParamGroup',
     description=CREATE_INSTANCE_PARAMETER_GROUP_TOOL_DESCRIPTION,
 )
 @handle_exceptions

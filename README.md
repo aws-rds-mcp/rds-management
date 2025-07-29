@@ -38,11 +38,13 @@ The official MCP Server for managing AWS RDS database resources. This server pro
 ### Parameter Group Management Tools
 
 - `CreateDBClusterParameterGroup` - Create a new custom DB cluster parameter group
-- `CreateDBInstanceParameterGroup` - Create a new custom DB instance parameter group
+- `CreateDBInstanceParamGroup` - Create a new custom DB instance parameter group
 - `ModifyDBClusterParameterGroup` - Modify parameters in a DB cluster parameter group
-- `ModifyDBInstanceParameterGroup` - Modify parameters in a DB instance parameter group
+- `ModifyDBInstanceParamGroup` - Modify parameters in a DB instance parameter group
 - `ResetDBClusterParameterGroup` - Reset parameters in a DB cluster parameter group
 - `ResetDBInstanceParameterGroup` - Reset parameters in a DB instance parameter group
+- `DescribeDBClusterParamGroups` - List DB cluster parameter group descriptions
+- `DescribeDBInstanceParamGroups` - List DB instance parameter group descriptions
 
 ## Instructions
 
