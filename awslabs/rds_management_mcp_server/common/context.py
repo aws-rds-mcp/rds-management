@@ -14,7 +14,7 @@
 
 """Context management for Amazon RDS Management MCP Server."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class RDSContext:
@@ -22,17 +22,22 @@ class RDSContext:
 
     _readonly = True
     _max_items = 100
+    _endpoint_url: Optional[str] = None
 
     @classmethod
-    def initialize(cls, readonly: bool = True, max_items: int = 100):
+    def initialize(
+        cls, readonly: bool = True, max_items: int = 100, endpoint_url: Optional[str] = None
+    ):
         """Initialize the context.
 
         Args:
             readonly (bool): Whether to run in readonly mode. Defaults to True.
             max_items (int): Maximum number of items returned from API responses. Defaults to 100.
+            endpoint_url (Optional[str]): Custom endpoint URL for RDS API calls. Defaults to None.
         """
         cls._readonly = readonly
         cls._max_items = max_items
+        cls._endpoint_url = endpoint_url
 
     @classmethod
     def readonly_mode(cls) -> bool:
@@ -51,6 +56,15 @@ class RDSContext:
             The maximum number of items returned from API responses
         """
         return cls._max_items
+
+    @classmethod
+    def endpoint_url(cls) -> Optional[str]:
+        """Get the custom endpoint URL for RDS API calls.
+
+        Returns:
+            The custom endpoint URL, or None if using default AWS endpoints
+        """
+        return cls._endpoint_url
 
     @classmethod
     def get_pagination_config(cls) -> Dict[str, Any]:

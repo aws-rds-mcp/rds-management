@@ -16,6 +16,7 @@
 
 import boto3
 import os
+from .context import RDSContext
 from botocore.config import Config
 from typing import Any, Optional
 
@@ -54,10 +55,19 @@ class BaseConnectionManager:
                 user_agent_extra='MCP/AmazonRDSManagementMCPServer',
             )
 
+            # get custom endpoint URL from context or environment
+            endpoint_url = RDSContext.endpoint_url() or os.environ.get(
+                f'{cls._env_prefix}_ENDPOINT_URL'
+            )
+
             # init AWS client with session and config
             # if user changes credential, it will be reflected immediately in the next call
             session = boto3.Session(profile_name=aws_profile, region_name=aws_region)
-            cls._client = session.client(service_name=cls._service_name, config=config)
+            client_kwargs = {'service_name': cls._service_name, 'config': config}
+            if endpoint_url:
+                client_kwargs['endpoint_url'] = endpoint_url
+
+            cls._client = session.client(**client_kwargs)
 
         return cls._client
 

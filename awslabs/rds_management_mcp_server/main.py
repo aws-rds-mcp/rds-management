@@ -42,11 +42,16 @@ def main():
         action=argparse.BooleanOptionalAction,
         help='Prevents the MCP server from performing mutating operations',
     )
+    parser.add_argument(
+        '--endpoint-url',
+        type=str,
+        help='Custom endpoint URL for RDS API calls (e.g., https://rds-orion.us-west-2.amazonaws.com)',
+    )
 
     args = parser.parse_args()
 
     mcp.settings.port = args.port
-    RDSContext.initialize(args.readonly, args.max_items)
+    RDSContext.initialize(args.readonly, args.max_items, args.endpoint_url)
 
     logger.info(f'Starting RDS Management MCP Server v{MCP_SERVER_VERSION}')
 
